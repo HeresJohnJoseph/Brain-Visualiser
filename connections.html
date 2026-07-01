@@ -135,8 +135,9 @@
     todo:{label:'To-do',hex:'#37d6ad'},
     worry:{label:'Keeping me up',hex:'#ff5a3c'},
     idea:{label:'Idea',hex:'#b98cff'},
+    goal:{label:'Goal',hex:'#ffcf6b'},
   };
-  const CAT_ORDER=['task','todo','worry','idea'];
+  const CAT_ORDER=['task','todo','worry','idea','goal'];
   const MOODS=[{key:'joy',label:'Joy',hex:'#ffce54'},{key:'stress',label:'Stress',hex:'#ff5a3c'},{key:'excitement',label:'Excitement',hex:'#37d6ad'}];
   const esc=s=>{const d=document.createElement('div');d.textContent=s||'';return d.innerHTML;};
   const hexRgb=hex=>{const n=parseInt(hex.replace('#',''),16);return {r:(n>>16)&255,g:(n>>8)&255,b:n&255};};
@@ -191,7 +192,7 @@
   resize();new ResizeObserver(resize).observe(stage);
 
   const CLUSTER_CENTER={
-    task:{x:0.28,y:0.32}, todo:{x:0.72,y:0.28}, worry:{x:0.5,y:0.72}, idea:{x:0.78,y:0.68},
+    task:{x:0.22,y:0.28}, todo:{x:0.72,y:0.22}, worry:{x:0.5,y:0.78}, idea:{x:0.82,y:0.62}, goal:{x:0.22,y:0.72},
   };
 
   let dragId=null, dragging=false, hoverId=null, mx=0,my=0;

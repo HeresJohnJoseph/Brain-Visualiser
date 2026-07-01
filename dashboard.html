@@ -298,16 +298,18 @@
     task:{label:"Task",hex:"#5b9dff",lobe:{x:0.37,y:0.42}},
     todo:{label:"To-do",hex:"#37d6ad",lobe:{x:0.52,y:0.33}},
     worry:{label:"Keeping me up",hex:"#ff5a3c",lobe:{x:0.49,y:0.59}},
-    idea:{label:"Idea",hex:"#b98cff",lobe:{x:0.665,y:0.42}}
+    idea:{label:"Idea",hex:"#b98cff",lobe:{x:0.665,y:0.42}},
+    goal:{label:"Goal",hex:"#ffcf6b",lobe:{x:0.30,y:0.66}}
   };
   function seedThoughts(){
     const s=[["task","Finish the Q3 board deck",3,0.01,-0.03],["task","Reply to the investor email",2,-0.06,0.02],
       ["task","Review Maya's pull request",1,0.05,0.05],["todo","Book a dentist appointment",1,-0.05,0],
       ["todo","Renew the car insurance",2,0.05,0.04],["worry","Will we make payroll next month?",3,0,-0.03],
       ["worry","Did I actually send that contract?",2,-0.07,0.04],["worry","Mom's test results on Friday",3,0.07,0.03],
-      ["idea","Newsletter: building in public",2,0,-0.03],["idea","Try a 4-day work week",1,-0.06,0.05]];
-    return s.map(([cat,text,prio,dx,dy])=>({id:"t"+Math.random().toString(36).slice(2),text,cat,prio,done:false,
-      x:CATS[cat].lobe.x+dx,y:CATS[cat].lobe.y+dy,t:Date.now()}));
+      ["idea","Newsletter: building in public",2,0,-0.03],["idea","Try a 4-day work week",1,-0.06,0.05],
+      ["goal","Run a 5km",2,0,-0.02]];
+    return s.map(([cat,text,prio,dx,dy])=>{const th={id:"t"+Math.random().toString(36).slice(2),text,cat,prio,done:false,
+      x:CATS[cat].lobe.x+dx,y:CATS[cat].lobe.y+dy,t:Date.now()};if(cat==="goal")th.due="2026-11-01";return th;});
   }
   const habitDefaults=[
     {id:1,name:"Morning walk",icon:"🚶",days:[true,true,false,true,false,false,false]},
@@ -381,8 +383,8 @@
     const load=Math.min(1,urgent*0.22+open*0.05);
     document.documentElement.style.setProperty("--load",load.toFixed(2));
     $(".bglow").style.setProperty("--load",load.toFixed(2));
-    const state2=urgent>=3?"Loud":urgent>=1?"Busy":open>=3?"Humming":"Clear";
-    const cols={Loud:"#ff6a2a",Busy:"#ff9a4d",Humming:"#ffc27a",Clear:"#5be0d0"};
+    const state2=load>=0.65?"Loud":load>=0.4?"Busy":load>=0.15?"Humming":"Clear";
+    const cols={Loud:"#ff6a2a",Busy:"#ffb15e",Humming:"#8fd0ff",Clear:"#5be0d0"};
     $("#loadState").textContent=state2;$("#loadState").style.color=cols[state2];
     $("#loadChip").textContent=state2;$("#loadChip").style.color=cols[state2];
     $("#loadMeta").textContent=urgent+" pressing · "+done+" done";
