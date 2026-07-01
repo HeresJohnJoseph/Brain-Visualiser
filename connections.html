@@ -78,7 +78,8 @@
   .chip .d{width:8px;height:8px;border-radius:50%;}
   .chip.off{opacity:.4;}
 
-  .modewrap{display:flex;gap:6px;}
+  .modewrap{display:flex;gap:6px;flex-wrap:wrap;}
+  .modewrap .modebtn{flex:1 1 30%;}
   .modebtn{flex:1;padding:8px;border-radius:8px;font-size:11.5px;font-weight:650;cursor:pointer;text-align:center;
     border:1px solid rgba(255,255,255,0.12);background:rgba(255,255,255,0.03);color:rgba(214,226,248,0.55);}
   .modebtn.on{border-color:rgba(255,170,110,.5);background:rgba(255,133,74,.16);color:#ffb782;}
@@ -138,6 +139,8 @@
     goal:{label:'Goal',hex:'#ffcf6b',lobe:{x:0.30,y:0.66}},
   };
   const CAT_ORDER=['task','todo','worry','idea','goal'];
+  const SIZES={s:{label:'S',r:5},m:{label:'M',r:8},l:{label:'L',r:12}};
+  const SIZE_ORDER=['s','m','l'];
   const MOODS=[{key:'joy',label:'Joy',hex:'#ffce54'},{key:'stress',label:'Stress',hex:'#ff5a3c'},{key:'excitement',label:'Excitement',hex:'#37d6ad'}];
   const esc=s=>{const d=document.createElement('div');d.textContent=s||'';return d.innerHTML;};
   const hexRgb=hex=>{const n=parseInt(hex.replace('#',''),16);return {r:(n>>16)&255,g:(n>>8)&255,b:n&255};};
@@ -150,7 +153,7 @@
   load();
   window.addEventListener('storage',e=>{if(e.key===LS){load();rebuildNodes();}});
 
-  const state={activeCats:new Set(CAT_ORDER),sizeBy:'prio',selectedId:null};
+  const state={activeCats:new Set(CAT_ORDER),sizeBy:'size',selectedId:null};
 
   const idHash=id=>{let h=0;for(let i=0;i<id.length;i++)h=(h*31+id.charCodeAt(i))>>>0;return h;};
   const idlePhase={};
@@ -273,6 +276,7 @@
   let dragNode=null;
 
   function nodeRadius(n){
+    if(state.sizeBy==='size')return (SIZES[n.t.size||'m']||SIZES.m).r;
     const base=6;
     if(state.sizeBy==='prio')return base+n.t.prio*2.6;
     const v=moodOf(n.t,state.sizeBy);
@@ -395,7 +399,7 @@
   }
   function renderModes(){
     const el=$('#moodModes');el.innerHTML='';
-    [{key:'prio',label:'Urgency'},...MOODS.map(m=>({key:m.key,label:m.label}))].forEach(m=>{
+    [{key:'size',label:'Size'},{key:'prio',label:'Urgency'},...MOODS.map(m=>({key:m.key,label:m.label}))].forEach(m=>{
       const b=document.createElement('button');b.className='modebtn'+(state.sizeBy===m.key?' on':'');
       b.textContent=m.label;
       b.onclick=()=>{state.sizeBy=m.key;renderModes();};

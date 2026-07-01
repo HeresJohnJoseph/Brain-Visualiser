@@ -69,6 +69,27 @@
   .card .mrow .dt{width:18px;height:18px;border-radius:50%;border:1px solid rgba(255,255,255,0.18);
     background:rgba(255,255,255,0.04);cursor:pointer;padding:0;transition:.12s;}
   .card .mrow .dt:hover{transform:scale(1.15);}
+  .card .szbtn{padding:5px 11px;border-radius:7px;font-size:12px;font-weight:700;cursor:pointer;
+    border:1px solid rgba(255,255,255,0.16);background:rgba(255,255,255,0.03);transition:.15s;}
+  .card .szbtn:hover{transform:scale(1.06);}
+  .card .planbrk{width:100%;margin-top:4px;padding:11px;border-radius:10px;cursor:pointer;
+    border:1px solid rgba(91,157,255,.35);background:rgba(91,157,255,.1);color:#8fbcff;
+    font-weight:650;font-size:13.5px;transition:.2s;}
+  .card .planbrk:hover{background:rgba(91,157,255,.18);}
+  .card .planbrk:disabled{opacity:.6;cursor:default;}
+  .card .plan{margin:8px 0 2px;padding:11px 12px;border-radius:10px;background:rgba(91,157,255,.06);
+    border:1px solid rgba(91,157,255,.18);}
+  .card .plank{font-family:var(--mono);font-size:11px;letter-spacing:.5px;color:#8fbcff;margin-bottom:8px;}
+  .card .planstep{display:flex;align-items:flex-start;gap:8px;padding:6px 0;cursor:pointer;
+    border-top:1px solid rgba(255,255,255,0.06);}
+  .card .planstep:first-of-type{border-top:none;}
+  .card .planck{width:16px;height:16px;flex:none;border-radius:5px;border:1px solid rgba(255,255,255,0.25);
+    display:grid;place-items:center;font-size:10px;color:#8fbcff;margin-top:1px;}
+  .card .planstep.done .planck{background:#8fbcff;border-color:#8fbcff;color:#0a1830;}
+  .card .plantx{font-size:13px;line-height:1.4;color:var(--ink);}
+  .card .planstep.done .plantx{color:var(--ink-faint);text-decoration:line-through;}
+  .card .plandone{margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.08);
+    font-size:12.5px;color:#7fe0a0;}
   .ai{margin-top:12px;border-top:1px solid rgba(255,255,255,0.1);padding-top:12px;}
   .ai .kick{font-family:var(--mono);font-size:11px;letter-spacing:1.4px;text-transform:uppercase;color:var(--ember-1);margin-bottom:8px;}
   .ai .head{font-family:var(--serif);font-style:italic;font-size:17px;line-height:1.4;color:#fff;margin-bottom:10px;}
@@ -193,6 +214,10 @@
         <div class="prow">
           <span class="pl">Urgency</span>
           <div class="segrow" id="prioRow" style="margin-top:0"></div>
+        </div>
+        <div class="prow">
+          <span class="pl">Size</span>
+          <div class="segrow" id="sizeRow" style="margin-top:0"></div>
           <button class="add" id="addBtn">Add</button>
         </div>
       </div>
@@ -223,6 +248,8 @@
     goal:{label:'Goal',hex:'#ffcf6b',lobe:{x:0.30,y:0.66}},
   };
   const CAT_ORDER=['task','todo','worry','idea','goal'];
+  const SIZES={s:{label:'S',r:3.4},m:{label:'M',r:5.4},l:{label:'L',r:7.8}};
+  const SIZE_ORDER=['s','m','l'];
   const fmtDue=iso=>{if(!iso)return '';const d=new Date(iso+'T00:00:00');
     return d.toLocaleDateString(undefined,{month:'short',year:'numeric'});};
   const TIPS=[
@@ -244,25 +271,25 @@
   const newId=()=>'t'+Date.now().toString(36)+(uid++);
   const esc=s=>{const d=document.createElement('div');d.textContent=s||'';return d.innerHTML;};
 
-  const state={thoughts:[],draft:'',cat:'worry',prio:2,filter:'all',selectedId:null};
+  const state={thoughts:[],draft:'',cat:'worry',prio:2,size:'m',filter:'all',selectedId:null};
 
   function pos(cat,dx,dy){const l=CATS[cat].lobe;return {x:l.x+dx,y:l.y+dy};}
   function seed(){
     const s=[
-      ['task','Finish the Q3 board deck',3,0.01,-0.03],
-      ['task','Reply to the investor email',2,-0.06,0.02],
-      ['task',"Review Maya's pull request",1,0.05,0.05],
-      ['todo','Book a dentist appointment',1,-0.05,0.0],
-      ['todo','Renew the car insurance',2,0.05,0.04],
-      ['worry','Will we make payroll next month?',3,0.0,-0.03],
-      ['worry','Did I actually send that contract?',2,-0.07,0.04],
-      ['worry',"Mom's test results on Friday",3,0.07,0.03],
-      ['idea','Newsletter: building in public',2,0.0,-0.03],
-      ['idea','Try a 4-day work week',1,-0.06,0.05],
-      ['goal','Run a 5km',2,0.0,-0.02],
+      ['task','Finish the Q3 board deck',3,'l',0.01,-0.03],
+      ['task','Reply to the investor email',2,'s',-0.06,0.02],
+      ['task',"Review Maya's pull request",1,'s',0.05,0.05],
+      ['todo','Book a dentist appointment',1,'s',-0.05,0.0],
+      ['todo','Renew the car insurance',2,'m',0.05,0.04],
+      ['worry','Will we make payroll next month?',3,'l',0.0,-0.03],
+      ['worry','Did I actually send that contract?',2,'s',-0.07,0.04],
+      ['worry',"Mom's test results on Friday",3,'m',0.07,0.03],
+      ['idea','Newsletter: building in public',2,'m',0.0,-0.03],
+      ['idea','Try a 4-day work week',1,'s',-0.06,0.05],
+      ['goal','Run a 5km',2,'m',0.0,-0.02],
     ];
-    return s.map(([cat,text,prio,dx,dy])=>{const p=pos(cat,dx,dy);
-      const th={id:newId(),text,cat,prio,done:false,x:p.x,y:p.y,t:Date.now()};
+    return s.map(([cat,text,prio,size,dx,dy])=>{const p=pos(cat,dx,dy);
+      const th={id:newId(),text,cat,prio,size,done:false,x:p.x,y:p.y,t:Date.now()};
       if(cat==='goal')th.due='2026-11-01';
       return th;});
   }
@@ -422,9 +449,10 @@
       const cc=hexRgb(CATS[th.cat].hex), col=th.done?{r:150,g:165,b:190}:calm(cc);
       const isW=th.cat==='worry'&&!th.done, isHov=hov===th.id||selId===th.id;
       const pulse=0.5+0.5*Math.sin(tm*(isW?3.0:1.4)*PULSE_SPEED+th.x*17);
-      const baseR=2.4+th.prio*1.25;
-      const glowR=baseR*2.7*(1+(isW?0.55:0.28)*pulse)*(isHov?1.6:1)*(1+prox*0.5)*(th.done?0.5:1);
-      const al=(th.done?0.16:0.42+0.22*pulse)*(isHov?1.35:1)*(1+prox*0.4);
+      const baseR=(SIZES[th.size||'m']||SIZES.m).r;
+      const urgencyBoost=1+(th.prio-1)*0.18;
+      const glowR=baseR*2.7*(1+(isW?0.55:0.28)*pulse)*(isHov?1.6:1)*(1+prox*0.5)*(th.done?0.5:1)*urgencyBoost;
+      const al=(th.done?0.16:0.42+0.22*pulse)*(isHov?1.35:1)*(1+prox*0.4)*urgencyBoost;
       const g=ctx.createRadialGradient(p.x,p.y,0,p.x,p.y,glowR);
       g.addColorStop(0,rgba(col,Math.min(al,0.95)));g.addColorStop(0.4,rgba(col,al*0.4));g.addColorStop(1,rgba(col,0));
       ctx.fillStyle=g;ctx.beginPath();ctx.arc(p.x,p.y,glowR,0,6.2832);ctx.fill();
@@ -434,7 +462,7 @@
     for(const th of ths){
       const p=lastPos[th.id];if(!p)continue;
       const cc=hexRgb(CATS[th.cat].hex), col=th.done?{r:150,g:165,b:190}:cc;
-      const isHov=hov===th.id||selId===th.id, baseR=2.4+th.prio*1.25;
+      const isHov=hov===th.id||selId===th.id, baseR=(SIZES[th.size||'m']||SIZES.m).r;
       ctx.fillStyle=th.done?rgba({r:190,g:200,b:220},0.55):rgba(PAL.white,0.95);
       ctx.beginPath();ctx.arc(p.x,p.y,baseR*(isHov?1.3:1),0,6.2832);ctx.fill();
       if(selId===th.id){ctx.lineWidth=2;ctx.strokeStyle=rgba(col,0.95);ctx.beginPath();ctx.arc(p.x,p.y,baseR+7,0,6.2832);ctx.stroke();}
@@ -489,11 +517,13 @@
   function addThought(){const text=state.draft.trim();if(!text)return;
     const p=pos(state.cat,rnd(-0.06,0.06),rnd(-0.05,0.05));
     const due=(state.cat==='goal'&&$('#dueInput').value)?$('#dueInput').value:null;
-    state.thoughts.push({id:newId(),text,cat:state.cat,prio:state.prio,done:false,x:p.x,y:p.y,t:Date.now(),due,mood:{joy:0,stress:0,excitement:0}});
+    state.thoughts.push({id:newId(),text,cat:state.cat,prio:state.prio,size:state.size,done:false,x:p.x,y:p.y,t:Date.now(),due,mood:{joy:0,stress:0,excitement:0}});
     state.draft='';$('#draft').value='';$('#dueInput').value='';persist();renderAll();}
   function setMood(id,key,val){const th=state.thoughts.find(t=>t.id===id);if(!th)return;
     if(!th.mood)th.mood={joy:0,stress:0,excitement:0};
     th.mood[key]=th.mood[key]===val?0:val;persist();renderCard();}
+  function setSize(id,val){const th=state.thoughts.find(t=>t.id===id);if(!th)return;
+    th.size=val;persist();renderCard();}
   function setDue(id,due){const th=state.thoughts.find(t=>t.id===id);if(th){th.due=due||null;persist();renderCard();renderList();}}
   function toggleDone(id){const th=state.thoughts.find(t=>t.id===id);if(th){th.done=!th.done;persist();renderAll();}}
   function deleteThought(id){state.thoughts=state.thoughts.filter(t=>t.id!==id);
@@ -512,6 +542,20 @@
       if(state.selectedId===th.id)renderCard();renderList();
     }catch(e){box.innerHTML='<div class="kick">Headroom</div><div class="ai-err" style="font-size:12.5px;color:var(--ink-dim)">Couldn\'t reach the coach — is the server running?</div>';}
   }
+  async function breakdownTask(th){
+    const card=$('#stage .card');if(!card)return;
+    const btn=card.querySelector('.planbrk');if(!btn)return;
+    btn.textContent='✦ Breaking it down…';btn.disabled=true;
+    try{
+      const r=await fetch('/api/breakdown',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({thought:th.text})});
+      const d=await r.json();
+      th.subtasks=(d.steps||[]).map(s=>({text:s,done:false}));
+      persist();
+      if(state.selectedId===th.id)renderCard();
+    }catch(e){btn.textContent='✦ Break it down';btn.disabled=false;}
+  }
+  function toggleSubtask(id,i){const th=state.thoughts.find(t=>t.id===id);if(!th||!th.subtasks||!th.subtasks[i])return;
+    th.subtasks[i].done=!th.subtasks[i].done;persist();renderCard();}
   function aiHtml(ai){
     if(!ai)return '';
     const acts=(ai.actions||[]).map((a,i)=>'<div class="act"><div class="n">0'+(i+1)+'</div><div><div class="tt">'+esc(a.title)+'</div>'+(a.detail?'<div class="dd">'+esc(a.detail)+'</div>':'')+'</div></div>').join('');
@@ -553,6 +597,9 @@
     const prioRow=$('#prioRow');prioRow.innerHTML='';
     [1,2,3].forEach(p=>{const b=document.createElement('button');b.className='seg';b.textContent='P'+p;
       b.onclick=()=>{state.prio=p;paintControls();};prioRow.appendChild(b);b._p=p;});
+    const sizeRow=$('#sizeRow');sizeRow.innerHTML='';
+    SIZE_ORDER.forEach(s=>{const b=document.createElement('button');b.className='seg';b.textContent=SIZES[s].label;
+      b.onclick=()=>{state.size=s;paintControls();};sizeRow.appendChild(b);b._s=s;});
     const filters=$('#filters');filters.innerHTML='';
     [{key:'all',label:'All'},...CAT_ORDER.map(k=>({key:k,label:CATS[k].label}))].forEach(f=>{
       const b=document.createElement('button');b.className='seg';
@@ -562,6 +609,7 @@
   function paintControls(){
     $('#catRow').querySelectorAll('.seg').forEach(b=>segStyle(b,state.cat===b._k,CATS[b._k].hex));
     $('#prioRow').querySelectorAll('.seg').forEach(b=>segStyle(b,state.prio===b._p,null));
+    $('#sizeRow').querySelectorAll('.seg').forEach(b=>segStyle(b,state.size===b._s,null));
     $('#dueRow').style.display=state.cat==='goal'?'flex':'none';
     const counts={all:state.thoughts.length};CAT_ORDER.forEach(k=>counts[k]=state.thoughts.filter(t=>t.cat===k).length);
     $('#filters').querySelectorAll('.seg').forEach(b=>{const hex=b._f==='all'?null:CATS[b._f].hex;
@@ -631,6 +679,25 @@
       'background:rgba(0,0,0,0.25);color:#fff;border-radius:7px;padding:5px 8px;font-size:13px;color-scheme:dark;"/></div>'+
       (countdown?'<div style="font-size:13px;color:'+hex+';margin-bottom:4px">'+countdown+'</div>':'');
   }
+  function sizeHtml(t){
+    return '<div class="mrow" style="margin-bottom:2px"><span class="ml">Size</span><span class="dots" style="gap:6px">'+
+      SIZE_ORDER.map(s=>'<button class="szbtn" data-s="'+s+'" style="'+
+        (t.size===s||(!t.size&&s==='m')?'border-color:'+CATS[t.cat].hex+';background:'+CATS[t.cat].hex+'22;color:'+CATS[t.cat].hex:'color:rgba(214,226,248,0.5)')+
+        '">'+SIZES[s].label+'</button>').join('')+'</span></div>';
+  }
+  function planHtml(t){
+    const hex=CATS.task.hex;
+    if(t.subtasks&&t.subtasks.length){
+      const done=t.subtasks.filter(s=>s.done).length, all=done===t.subtasks.length;
+      return '<div class="plan">'+
+        '<div class="plank">✦ Plan · '+done+'/'+t.subtasks.length+' done</div>'+
+        t.subtasks.map((s,i)=>'<div class="planstep'+(s.done?' done':'')+'" data-i="'+i+'">'+
+          '<span class="planck">'+(s.done?'✓':'')+'</span><span class="plantx">'+esc(s.text)+'</span></div>').join('')+
+        (all?'<div class="plandone">All steps done — nice work. Mark the task done above.</div>':'')+
+        '</div>';
+    }
+    return '<button class="planbrk">✦ Break it down</button>';
+  }
   function moodHtml(t){
     const m=t.mood||{};
     return '<div class="moods">'+MOODS.map(md=>{
@@ -653,7 +720,9 @@
       '<span class="lab" style="color:'+hex+'">'+esc(CATS[t.cat].label)+'</span>'+
       '<button class="x">×</button></div>'+
       '<textarea rows="3">'+esc(t.text)+'</textarea>'+
+      sizeHtml(t)+
       (t.cat==='goal'?goalHtml(t):'')+
+      (t.cat==='task'?planHtml(t):'')+
       moodHtml(t)+
       '<div class="acts"><button class="done" style="border:1px solid '+hex+'66;background:'+hex+'22;color:'+hex+'">'+
       (t.done?'Mark active':'Mark done')+'</button>'+
@@ -665,8 +734,11 @@
     card.querySelector('.done').onclick=()=>toggleDone(t.id);
     card.querySelector('.del').onclick=()=>deleteThought(t.id);
     card.querySelectorAll('.dt').forEach(b=>{b.onclick=()=>setMood(t.id,b.dataset.k,+b.dataset.v);});
+    card.querySelectorAll('.szbtn').forEach(b=>{b.onclick=()=>setSize(t.id,b.dataset.s);});
     const di=card.querySelector('.goaldue');if(di)di.onchange=e=>setDue(t.id,e.target.value);
     const cb=card.querySelector('.clearbtn');if(cb)cb.onclick=()=>clearThought(t);
+    const pb=card.querySelector('.planbrk');if(pb)pb.onclick=()=>breakdownTask(t);
+    card.querySelectorAll('.planstep').forEach(el=>{el.onclick=()=>toggleSubtask(t.id,+el.dataset.i);});
     stage.appendChild(card);
   }
   function renderAll(){paintControls();renderHead();renderList();renderCard();}

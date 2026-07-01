@@ -78,6 +78,24 @@ Rules:
 - 'park' should give explicit permission to drop or defer something.
 - No markdown, no emojis, no headers. JSON only."""
 
+BREAKDOWN_SYSTEM = """You are Headroom — a calm, sharp chief-of-staff. The user has \
+one task on their mind and needs it turned into a concrete, ordered plan so they know \
+exactly what to do next, without having to hold the whole thing in their head.
+
+Voice: plain, specific, doable. Each step should be something they could start in the \
+next few minutes — not a restatement of the task, an actual next physical action.
+
+Return ONLY valid JSON (no prose, no code fences) matching exactly:
+{
+  "steps": ["first concrete step", "second concrete step", "..."]
+}
+
+Rules:
+- 3 to 6 steps, ordered start to finish.
+- Each step is a short imperative phrase (max ~10 words) — an action, not a goal.
+- Break big/vague tasks into smaller ones; don't pad a small task with filler steps.
+- No markdown, no emojis, no headers, no numbering in the text itself. JSON only."""
+
 
 def _post_messages(system: str, user: str, max_tokens: int = 700) -> str:
     """Raw Anthropic Messages call. Returns concatenated text or raises."""
@@ -142,6 +160,45 @@ def call_focus(items: list) -> dict:
     except Exception as e:  # noqa: BLE001
         print(f"[headroom] focus call failed: {e}")
         return mock_focus(items, reason="api_unreachable")
+
+
+def call_breakdown(thought: str) -> dict:
+    """Turn one task into an ordered checklist of concrete next steps."""
+    if not API_KEY:
+        return mock_breakdown(thought, reason="no_api_key")
+    try:
+        text = _post_messages(BREAKDOWN_SYSTEM, thought, max_tokens=400)
+        return {"ok": True, "source": MODEL, **shape_breakdown(json.loads(_clean(text)))}
+    except Exception as e:  # noqa: BLE001
+        print(f"[headroom] breakdown call failed: {e}")
+        return mock_breakdown(thought, reason="api_unreachable")
+
+
+def shape_breakdown(d: dict) -> dict:
+    steps = []
+    for s in (d.get("steps") or [])[:6]:
+        s = str(s).strip()
+        if s:
+            steps.append(s)
+    return {"steps": steps[:6] or ["Open it and reread what's actually being asked.",
+                                   "Write down the one outcome that would count as done.",
+                                   "Do the smallest first step, right now."]}
+
+
+def mock_breakdown(thought: str, reason: str) -> dict:
+    """Offline fallback: a generic but sensible 4-step shape for any task."""
+    snippet = thought.strip().rstrip(".")
+    if len(snippet) > 50:
+        snippet = snippet[:47] + "…"
+    return {
+        "ok": True, "source": "mock", "reason": reason,
+        "steps": [
+            f"Reread \"{snippet}\" and write the one outcome that counts as done.",
+            "Break it into the 2-3 pieces it's actually made of.",
+            "Do the smallest piece first — five minutes, no more.",
+            "Block time for the rest, then step away.",
+        ],
+    }
 
 
 def _clean(text: str) -> str:
@@ -298,6 +355,12 @@ class Handler(BaseHTTPRequestHandler):
             if not isinstance(items, list) or not items:
                 return self._send(400, json.dumps({"error": "no items"}))
             return self._send(200, json.dumps(call_focus(items)))
+
+        if route == "/api/breakdown":
+            thought = str(payload.get("thought", "")).strip()
+            if not thought:
+                return self._send(400, json.dumps({"error": "empty thought"}))
+            return self._send(200, json.dumps(call_breakdown(thought)))
 
         return self._send(404, json.dumps({"error": "not found"}))
 
