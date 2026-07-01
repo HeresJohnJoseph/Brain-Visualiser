@@ -110,7 +110,7 @@
     <aside class="panel">
       <div class="phead">
         <div class="t">Connections</div>
-        <div class="s">Every thought, clustered by category. Red threads link thoughts that are compounding your stress.</div>
+        <div class="s">Nothing in here lives alone. Every thought sits on the same brain and quietly touches the others — amber threads show the pull between categories, red threads show where stress is compounding.</div>
       </div>
       <div class="sec">
         <div class="st">Filter by category</div>
@@ -131,11 +131,11 @@
   const $=s=>document.querySelector(s);
   const LS='brainviz.thoughts.v1';
   const CATS={
-    task:{label:'Task',hex:'#5b9dff'},
-    todo:{label:'To-do',hex:'#37d6ad'},
-    worry:{label:'Keeping me up',hex:'#ff5a3c'},
-    idea:{label:'Idea',hex:'#b98cff'},
-    goal:{label:'Goal',hex:'#ffcf6b'},
+    task:{label:'Task',hex:'#5b9dff',lobe:{x:0.37,y:0.42}},
+    todo:{label:'To-do',hex:'#37d6ad',lobe:{x:0.52,y:0.33}},
+    worry:{label:'Keeping me up',hex:'#ff5a3c',lobe:{x:0.49,y:0.59}},
+    idea:{label:'Idea',hex:'#b98cff',lobe:{x:0.665,y:0.42}},
+    goal:{label:'Goal',hex:'#ffcf6b',lobe:{x:0.30,y:0.66}},
   };
   const CAT_ORDER=['task','todo','worry','idea','goal'];
   const MOODS=[{key:'joy',label:'Joy',hex:'#ffce54'},{key:'stress',label:'Stress',hex:'#ff5a3c'},{key:'excitement',label:'Excitement',hex:'#37d6ad'}];
@@ -158,9 +158,9 @@
   function rebuildNodes(){
     const byId={};
     nodes=thoughts.map((t,i)=>{
-      const prev=byId[t.id];
-      const seedAngle=(i/Math.max(1,thoughts.length))*6.2832;
-      return {id:t.id,x:0.5+0.28*Math.cos(seedAngle),y:0.5+0.28*Math.sin(seedAngle),vx:0,vy:0,t};
+      const l=(CATS[t.cat]&&CATS[t.cat].lobe)||{x:.5,y:.5};
+      const a=Math.random()*6.2832;
+      return {id:t.id,x:l.x+Math.cos(a)*0.05,y:l.y+Math.sin(a)*0.05,vx:0,vy:0,t};
     });
     const byIndex={};nodes.forEach((n,i)=>byIndex[n.id]=i);
     edges=[];
@@ -180,22 +180,39 @@
     for(let a=0;a<stressed.length;a++)for(let b=a+1;b<stressed.length;b++){
       edges.push({a:stressed[a],b:stressed[b],kind:'stress'});
     }
+    // cross edges: every node reaches across to its nearest neighbor in a DIFFERENT
+    // category, so the graph reads as one connected brain, not isolated clusters
+    nodes.forEach((n,i)=>{
+      const others=nodes.map((n2,j)=>j).filter(j=>j!==i&&nodes[j].t.cat!==n.t.cat);
+      if(!others.length)return;
+      others.sort((a,b)=>((nodes[a].x-n.x)**2+(nodes[a].y-n.y)**2)-((nodes[b].x-n.x)**2+(nodes[b].y-n.y)**2));
+      const j=others[0];
+      if(!edges.some(e=>(e.a===i&&e.b===j)||(e.a===j&&e.b===i)))
+        edges.push({a:i,b:j,kind:'cross'});
+    });
   }
   rebuildNodes();
 
   /* ---------- canvas ---------- */
   const stage=$('#stage'), canvas=$('#cv'), ctx=canvas.getContext('2d');
   const dpr=Math.min(window.devicePixelRatio||1,2);
-  let W=1,H=1;
+  let W=1,H=1, imgT={ox:0,oy:0,dw:1,dh:1};
   function resize(){const w=stage.clientWidth||1,h=stage.clientHeight||1;W=w;H=h;
     canvas.width=Math.round(w*dpr);canvas.height=Math.round(h*dpr);ctx.setTransform(dpr,0,0,dpr,0,0);}
   resize();new ResizeObserver(resize).observe(stage);
+  const img=new Image();img.src='brain.png';
+  function computeImg(){const iw=(img&&img.naturalWidth)||1200,ih=(img&&img.naturalHeight)||800;
+    const s=Math.max(W/iw,H/ih),dw=iw*s,dh=ih*s;imgT={ox:(W-dw)/2,oy:(H-dh)/2,dw,dh};}
+  const photoToScreen=(nx,ny)=>({x:imgT.ox+nx*imgT.dw,y:imgT.oy+ny*imgT.dh});
 
-  const CLUSTER_CENTER={
-    task:{x:0.22,y:0.28}, todo:{x:0.72,y:0.22}, worry:{x:0.5,y:0.78}, idea:{x:0.82,y:0.62}, goal:{x:0.22,y:0.72},
-  };
+  const CLUSTER_CENTER={};
+  CAT_ORDER.forEach(k=>CLUSTER_CENTER[k]=CATS[k].lobe);
 
-  let dragId=null, dragging=false, hoverId=null, mx=0,my=0;
+  let dragId=null, dragging=false, hoverId=null, mx=0,my=0, rawMx=null, rawMy=null;
+  let px=0,py=0,tx=0,ty=0,t0=performance.now();
+  let tScaleX=1,tScaleY=1,tSkewX=0,tSkewY=0,cxI=0,cyI=0;
+  function tiltPt(x,y){const dx=x-cxI,dy=y-cyI;
+    return {x:cxI+dx*tScaleX+dy*tSkewX, y:cyI+dy*tScaleY+dx*tSkewY};}
 
   function visible(n){return state.activeCats.has(n.t.cat)&&!n.t.done;}
 
@@ -208,15 +225,15 @@
         let dx=(a.x-b.x)*W, dy=(a.y-b.y)*H;
         let d2=dx*dx+dy*dy; if(d2<1)d2=1;
         const d=Math.sqrt(d2);
-        const force=2600/d2;
+        const force=1000/d2;
         const fx=(dx/d)*force, fy=(dy/d)*force;
         a.vx+=fx/W; a.vy+=fy/H; b.vx-=fx/W; b.vy-=fy/H;
       }
     }
-    // cluster pull
+    // cluster pull — hold each node near its category's anatomical lobe
     active.forEach(n=>{
       const c=CLUSTER_CENTER[n.t.cat]||{x:.5,y:.5};
-      n.vx+=(c.x-n.x)*0.010; n.vy+=(c.y-n.y)*0.010;
+      n.vx+=(c.x-n.x)*0.020; n.vy+=(c.y-n.y)*0.020;
     });
     // edge springs
     edges.forEach(e=>{
@@ -224,8 +241,8 @@
       if(!visible(a)||!visible(b))return;
       const dx=(b.x-a.x)*W, dy=(b.y-a.y)*H;
       const d=Math.sqrt(dx*dx+dy*dy)||1;
-      const target=e.kind==='stress'?70:110;
-      const k=e.kind==='stress'?0.0022:0.0012;
+      const target=e.kind==='stress'?55:e.kind==='cross'?150:60;
+      const k=e.kind==='stress'?0.0022:e.kind==='cross'?0.0007:0.0014;
       const f=(d-target)*k;
       const fx=(dx/d)*f, fy=(dy/d)*f;
       a.vx+=fx/W; a.vy+=fy/H; b.vx-=fx/W; b.vy-=fy/H;
@@ -254,20 +271,34 @@
     return hexRgb(CATS[n.t.cat].hex);
   }
 
-  function draw(){
+  function draw(now){
+    const tm=((now||performance.now())-t0)/1000;
+    if(rawMx===null){tx=Math.sin(tm*0.13)*0.35;ty=Math.cos(tm*0.1)*0.22;}
+    px+=(tx-px)*0.05; py+=(ty-py)*0.05;
     ctx.clearRect(0,0,W,H);
     ctx.fillStyle='#03060f';ctx.fillRect(0,0,W,H);
-    const pos=n=>({x:n.x*W,y:n.y*H});
+    computeImg();
+    cxI=imgT.ox+imgT.dw/2; cyI=imgT.oy+imgT.dh/2;
+    tScaleX=1-Math.abs(px)*0.06; tScaleY=1-Math.abs(py)*0.07;
+    tSkewX=py*0.10; tSkewY=px*0.08;
+    ctx.save();
+    ctx.translate(cxI,cyI);ctx.transform(tScaleX,tSkewY,tSkewX,tScaleY,0,0);ctx.translate(-cxI,-cyI);
+    if(img.complete&&img.naturalWidth){ctx.globalAlpha=0.62;ctx.drawImage(img,imgT.ox,imgT.oy,imgT.dw,imgT.dh);ctx.globalAlpha=1;}
+    ctx.restore();
+    const pos=n=>tiltPt(n.x*W,n.y*H);
     // edges
     edges.forEach(e=>{
       const a=nodes[e.a],b=nodes[e.b];
       if(!visible(a)||!visible(b))return;
       const pa=pos(a),pb=pos(b);
       if(e.kind==='stress'){
-        ctx.strokeStyle='rgba(255,90,60,0.45)';ctx.lineWidth=1.4;
+        ctx.strokeStyle='rgba(255,90,60,0.5)';ctx.lineWidth=1.4;
         ctx.setLineDash([3,4]);
+      }else if(e.kind==='cross'){
+        ctx.strokeStyle='rgba(255,190,110,0.16)';ctx.lineWidth=1;
+        ctx.setLineDash([]);
       }else{
-        ctx.strokeStyle='rgba(255,255,255,0.08)';ctx.lineWidth=1;
+        ctx.strokeStyle='rgba(255,255,255,0.1)';ctx.lineWidth=1;
         ctx.setLineDash([]);
       }
       ctx.beginPath();ctx.moveTo(pa.x,pa.y);ctx.lineTo(pb.x,pb.y);ctx.stroke();
@@ -297,20 +328,22 @@
     });
   }
 
-  function loop(){step();draw();requestAnimationFrame(loop);}
+  function loop(now){step();draw(now);requestAnimationFrame(loop);}
 
   /* ---------- pointer ---------- */
-  function hit(px,py){
+  function hit(qx,qy){
     for(let i=nodes.length-1;i>=0;i--){const n=nodes[i];if(!visible(n))continue;
-      const p={x:n.x*W,y:n.y*H},r=nodeRadius(n)+4;
-      if((px-p.x)**2+(py-p.y)**2<r*r)return n;}
+      const p=tiltPt(n.x*W,n.y*H),r=nodeRadius(n)+4;
+      if((qx-p.x)**2+(qy-p.y)**2<r*r)return n;}
     return null;
   }
   canvas.addEventListener('mousemove',e=>{
     const r=canvas.getBoundingClientRect();mx=e.clientX-r.left;my=e.clientY-r.top;
+    tx=(mx/W-0.5);ty=(my/H-0.5);rawMx=mx;rawMy=my;
     if(dragNode){dragNode.x=mx/W;dragNode.y=my/H;dragNode.vx=0;dragNode.vy=0;return;}
     const h=hit(mx,my);hoverId=h?h.id:null;canvas.style.cursor=h?'pointer':'default';
   });
+  canvas.addEventListener('mouseleave',()=>{rawMx=null;rawMy=null;hoverId=null;});
   canvas.addEventListener('mousedown',e=>{
     const r=canvas.getBoundingClientRect();const px=e.clientX-r.left,py=e.clientY-r.top;
     const h=hit(px,py);if(h)dragNode=h;
@@ -327,7 +360,8 @@
   function renderLegend(){
     const el=$('#legend');
     el.innerHTML=CAT_ORDER.map(k=>'<span class="li"><span class="d" style="background:'+CATS[k].hex+';box-shadow:0 0 6px '+CATS[k].hex+'"></span>'+CATS[k].label+'</span>').join('')+
-      '<span class="sep"></span><span class="li"><span class="d" style="background:#ff5a3c"></span>compounding stress link</span>';
+      '<span class="sep"></span><span class="li"><span class="d" style="background:#ffbe6e"></span>cross-category link</span>'+
+      '<span class="li"><span class="d" style="background:#ff5a3c"></span>compounding stress link</span>';
   }
   function renderChips(){
     const el=$('#catChips');el.innerHTML='';
@@ -378,7 +412,7 @@
     const t=thoughts.find(x=>x.id===state.selectedId);if(!t)return;
     const n=nodes.find(nn=>nn.id===t.id);
     const hex=CATS[t.cat].hex;
-    const p=n?{x:n.x*W,y:n.y*H}:{x:W/2,y:H/2};
+    const p=n?tiltPt(n.x*W,n.y*H):{x:W/2,y:H/2};
     const left=Math.max(12,Math.min((W||600)-296,p.x+22));
     const top=Math.max(12,Math.min(Math.max(12,(H||400)-340),p.y-20));
     const card=document.createElement('div');card.className='card';card.style.left=left+'px';card.style.top=top+'px';

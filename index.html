@@ -318,6 +318,7 @@
   function loop(now){
     const tm=(now-t0)/1000, minD=Math.min(W,H), sc=scene;
     if(!sc){requestAnimationFrame(loop);return;}
+    if(rawMx===null){tx=Math.sin(tm*0.15)*0.4;ty=Math.cos(tm*0.11)*0.26;}
     px+=(tx-px)*0.06; py+=(ty-py)*0.06;
     ctx.clearRect(0,0,W,H);
     computeImg();
@@ -325,8 +326,22 @@
     ctx.fillStyle='#03060f';ctx.fillRect(0,0,W,H);
     const bob=Math.sin(tm*0.4)*4;
     brainOff={x:-px*22,y:-py*16+bob};
+    const cxI=imgT.ox+imgT.dw/2+brainOff.x, cyI=imgT.oy+imgT.dh/2+brainOff.y;
+    const tScaleX=1-Math.abs(px)*0.07, tScaleY=1-Math.abs(py)*0.08;
+    const tSkewX=py*0.12, tSkewY=px*0.09;
+    const tiltPoint=(x,y)=>{const dx=x-cxI,dy=y-cyI;
+      return {x:cxI+dx*tScaleX+dy*tSkewX, y:cyI+dy*tScaleY+dx*tSkewY};};
+    ctx.save();
+    ctx.translate(cxI,cyI);ctx.transform(tScaleX,tSkewY,tSkewX,tScaleY,0,0);ctx.translate(-cxI,-cyI);
     if(img&&img.complete&&img.naturalWidth)
       ctx.drawImage(img,imgT.ox+brainOff.x,imgT.oy+brainOff.y,imgT.dw,imgT.dh);
+    ctx.restore();
+    ctx.globalCompositeOperation='overlay';
+    const shX=cxI-px*minD*0.55, shY=cyI-py*minD*0.45;
+    const sheen=ctx.createRadialGradient(shX,shY,0,shX,shY,minD*0.4);
+    sheen.addColorStop(0,'rgba(255,250,240,0.14)');sheen.addColorStop(1,'rgba(255,250,240,0)');
+    ctx.fillStyle=sheen;ctx.beginPath();ctx.arc(shX,shY,minD*0.4,0,6.2832);ctx.fill();
+    ctx.globalCompositeOperation='source-over';
 
     const ths=state.thoughts, active=ths.filter(t=>!t.done);
     const loadV=active.reduce((a,t)=>a+t.prio,0);
@@ -338,7 +353,7 @@
     const calm=c=>({r:NEUTRAL.r+(c.r-NEUTRAL.r)*calmT,g:NEUTRAL.g+(c.g-NEUTRAL.g)*calmT,b:NEUTRAL.b+(c.b-NEUTRAL.b)*calmT});
     const hot=computeHot();
     if(hot.hotCat){
-      const l=CATS[hot.hotCat].lobe, c0=photoToScreen(l.x,l.y), cx=c0.x+brainOff.x, cy=c0.y+brainOff.y;
+      const l=CATS[hot.hotCat].lobe, c0=photoToScreen(l.x,l.y), cp=tiltPoint(c0.x+brainOff.x,c0.y+brainOff.y), cx=cp.x, cy=cp.y;
       const hc=hexRgb(CATS[hot.hotCat].hex);
       const pulse=0.65+0.35*Math.sin(tm*1.8);
       const rr=minD*(0.16+0.02*pulse);
@@ -353,7 +368,7 @@
 
     ctx.globalCompositeOperation='lighter';
     if(loadV>0){
-      const c0=photoToScreen(0.515,0.5),cx=c0.x+brainOff.x,cy=c0.y+brainOff.y;
+      const c0=photoToScreen(0.515,0.5),cp=tiltPoint(c0.x+brainOff.x,c0.y+brainOff.y),cx=cp.x,cy=cp.y;
       const auraFull={r:255,g:Math.round(122-wr*60),b:Math.round(47-wr*30)};
       const aura=calm(auraFull);
       const pulse=0.7+0.3*Math.sin(tm*(1.4+wr*1.6));
@@ -388,7 +403,7 @@
     }
     const hov=hovered, selId=state.selectedId;
     for(const th of ths){
-      const base=neuronScreen(th);
+      const base0=neuronScreen(th), base=tiltPoint(base0.x,base0.y);
       const ph=phaseFor(th.id);
       let px2=base.x+Math.sin(tm*ph.fx+ph.px)*ph.amp, py2=base.y+Math.cos(tm*ph.fy+ph.py)*ph.amp;
       let prox=0;
