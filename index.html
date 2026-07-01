@@ -248,6 +248,15 @@
   const dpr=Math.min(window.devicePixelRatio||1,2);
   let W=1,H=1, imgT={ox:0,oy:0,dw:1,dh:1}, brainOff={x:0,y:0};
   let px=0,py=0,tx=0,ty=0, hovered=null, lastPos={}, t0=performance.now(), scene=null;
+  let rawMx=null, rawMy=null, ripples=[];
+  const idHash=id=>{let h=0;for(let i=0;i<id.length;i++)h=(h*31+id.charCodeAt(i))>>>0;return h;};
+  const idlePhase={};
+  function phaseFor(id){
+    if(!idlePhase[id]){const h=idHash(id);
+      idlePhase[id]={px:(h%1000)/1000*6.283,py:((h>>10)%1000)/1000*6.283,
+        fx:0.18+((h>>4)%100)/100*0.22,fy:0.15+((h>>7)%100)/100*0.2,amp:5+((h>>2)%100)/100*4};}
+    return idlePhase[id];
+  }
 
   const img=new Image(); img.src='brain.png';
 
@@ -333,13 +342,19 @@
     }
     const hov=hovered, selId=state.selectedId;
     for(const th of ths){
-      const p=neuronScreen(th);lastPos[th.id]=p;
+      const base=neuronScreen(th);
+      const ph=phaseFor(th.id);
+      let px2=base.x+Math.sin(tm*ph.fx+ph.px)*ph.amp, py2=base.y+Math.cos(tm*ph.fy+ph.py)*ph.amp;
+      let prox=0;
+      if(rawMx!==null){const dd=Math.hypot(rawMx-px2,rawMy-py2);
+        if(dd<110){prox=1-dd/110;px2+=(rawMx-px2)*prox*0.12;py2+=(rawMy-py2)*prox*0.12;}}
+      const p={x:px2,y:py2};lastPos[th.id]=p;
       const cc=hexRgb(CATS[th.cat].hex), col=th.done?{r:150,g:165,b:190}:cc;
       const isW=th.cat==='worry'&&!th.done, isHov=hov===th.id||selId===th.id;
       const pulse=0.5+0.5*Math.sin(tm*(isW?3.0:1.4)*PULSE_SPEED+th.x*17);
       const baseR=2.4+th.prio*1.25;
-      const glowR=baseR*2.7*(1+(isW?0.55:0.28)*pulse)*(isHov?1.6:1)*(th.done?0.5:1);
-      const al=(th.done?0.16:0.42+0.22*pulse)*(isHov?1.35:1);
+      const glowR=baseR*2.7*(1+(isW?0.55:0.28)*pulse)*(isHov?1.6:1)*(1+prox*0.5)*(th.done?0.5:1);
+      const al=(th.done?0.16:0.42+0.22*pulse)*(isHov?1.35:1)*(1+prox*0.4);
       const g=ctx.createRadialGradient(p.x,p.y,0,p.x,p.y,glowR);
       g.addColorStop(0,rgba(col,Math.min(al,0.95)));g.addColorStop(0.4,rgba(col,al*0.4));g.addColorStop(1,rgba(col,0));
       ctx.fillStyle=g;ctx.beginPath();ctx.arc(p.x,p.y,glowR,0,6.2832);ctx.fill();
@@ -355,6 +370,14 @@
       if(selId===th.id){ctx.lineWidth=2;ctx.strokeStyle=rgba(col,0.95);ctx.beginPath();ctx.arc(p.x,p.y,baseR+7,0,6.2832);ctx.stroke();}
       else if(isHov){ctx.lineWidth=1.4;ctx.strokeStyle=rgba(col,0.7);ctx.beginPath();ctx.arc(p.x,p.y,baseR+5,0,6.2832);ctx.stroke();}
       if(isHov&&selId!==th.id)labelEl={p,text:th.text,col};
+    }
+    if(ripples.length){
+      ripples=ripples.filter(rp=>(now-rp.t0)<900);
+      for(const rp of ripples){
+        const el=(now-rp.t0)/900, rr=8+el*46, al=(1-el)*0.55;
+        ctx.lineWidth=2;ctx.strokeStyle=rgba(rp.col,al);
+        ctx.beginPath();ctx.arc(rp.x,rp.y,rr,0,6.2832);ctx.stroke();
+      }
     }
     if(labelEl){
       ctx.font="600 13px "+getComputedStyle(document.body).fontFamily;
@@ -375,17 +398,19 @@
   /* ---------- pointer ---------- */
   canvas.addEventListener('mousemove',e=>{
     const r=canvas.getBoundingClientRect(),mx=e.clientX-r.left,my=e.clientY-r.top;
-    tx=(mx/W-0.5);ty=(my/H-0.5);
+    tx=(mx/W-0.5);ty=(my/H-0.5);rawMx=mx;rawMy=my;
     let hit=null;
     for(const th of state.thoughts){const p=lastPos[th.id];if(!p)continue;
-      if((mx-p.x)**2+(my-p.y)**2<17*17){hit=th.id;break;}}
+      if((mx-p.x)**2+(my-p.y)**2<20*20){hit=th.id;break;}}
     hovered=hit;canvas.style.cursor=hit?'pointer':'default';
   });
-  canvas.addEventListener('mouseleave',()=>{tx=0;ty=0;hovered=null;canvas.style.cursor='default';});
+  canvas.addEventListener('mouseleave',()=>{tx=0;ty=0;hovered=null;rawMx=null;rawMy=null;canvas.style.cursor='default';});
   canvas.addEventListener('click',e=>{
     const r=canvas.getBoundingClientRect(),mx=e.clientX-r.left,my=e.clientY-r.top;
     for(const th of state.thoughts){const p=lastPos[th.id];if(!p)continue;
-      if((mx-p.x)**2+(my-p.y)**2<18*18){select(th.id);return;}}
+      if((mx-p.x)**2+(my-p.y)**2<20*20){
+        ripples.push({x:p.x,y:p.y,t0:performance.now(),col:hexRgb(CATS[th.cat].hex)});
+        select(th.id);return;}}
     if(state.selectedId!==null){state.selectedId=null;renderCard();renderList();}
   });
 
