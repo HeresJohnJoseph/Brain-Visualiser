@@ -152,6 +152,15 @@
 
   const state={activeCats:new Set(CAT_ORDER),sizeBy:'prio',selectedId:null};
 
+  const idHash=id=>{let h=0;for(let i=0;i<id.length;i++)h=(h*31+id.charCodeAt(i))>>>0;return h;};
+  const idlePhase={};
+  function phaseFor(id){
+    if(!idlePhase[id]){const h=idHash(id);
+      idlePhase[id]={px:(h%1000)/1000*6.283,py:((h>>10)%1000)/1000*6.283,
+        fx:0.5+((h>>4)%100)/100*0.6,fy:0.42+((h>>7)%100)/100*0.55,amp:9+((h>>2)%100)/100*8};}
+    return idlePhase[id];
+  }
+
   /* ---------- graph nodes / edges ---------- */
   let nodes=[], edges=[];
   function moodOf(t,k){return (t.mood&&t.mood[k])||0;}
@@ -212,10 +221,14 @@
   CAT_ORDER.forEach(k=>CLUSTER_CENTER[k]=CATS[k].lobe);
 
   let dragId=null, dragging=false, hoverId=null, mx=0,my=0, rawMx=null, rawMy=null;
-  let px=0,py=0,tx=0,ty=0,t0=performance.now();
+  let px=0,py=0,tx=0,ty=0,t0=performance.now(),lastTm=0;
   let tScaleX=1,tScaleY=1,tSkewX=0,tSkewY=0,cxI=0,cyI=0;
   function tiltPt(x,y){const dx=x-cxI,dy=y-cyI;
     return {x:cxI+dx*tScaleX+dy*tSkewX, y:cyI+dy*tScaleY+dx*tSkewY};}
+  function nodeScreenPos(n){
+    const p=tiltPt(n.x*W,n.y*H), ph=phaseFor(n.id), wt=state.selectedId?0:1;
+    return {x:p.x+Math.sin(lastTm*ph.fx+ph.px)*ph.amp*wt, y:p.y+Math.cos(lastTm*ph.fy+ph.py)*ph.amp*wt};
+  }
 
   function visible(n){return state.activeCats.has(n.t.cat)&&!n.t.done;}
 
@@ -276,8 +289,12 @@
 
   function draw(now){
     const tm=((now||performance.now())-t0)/1000;
-    if(rawMx===null){tx=Math.sin(tm*0.13)*0.35;ty=Math.cos(tm*0.1)*0.22;}
-    px+=(tx-px)*0.05; py+=(ty-py)*0.05;
+    lastTm=tm;
+    if(rawMx===null&&!state.selectedId){
+      const dur=(img.duration||10.04), vphase=((img.currentTime||0)/dur)*6.2832;
+      tx=Math.sin(vphase)*0.45; ty=Math.cos(vphase*0.85)*0.28;
+    }
+    if(!state.selectedId){px+=(tx-px)*0.1; py+=(ty-py)*0.1;}
     ctx.clearRect(0,0,W,H);
     ctx.fillStyle='#03060f';ctx.fillRect(0,0,W,H);
     computeImg();
@@ -288,7 +305,7 @@
     ctx.translate(cxI,cyI);ctx.transform(tScaleX,tSkewY,tSkewX,tScaleY,0,0);ctx.translate(-cxI,-cyI);
     if(img.readyState>=2&&img.videoWidth){ctx.globalAlpha=0.62;ctx.drawImage(img,imgT.ox,imgT.oy,imgT.dw,imgT.dh);ctx.globalAlpha=1;}
     ctx.restore();
-    const pos=n=>tiltPt(n.x*W,n.y*H);
+    const pos=nodeScreenPos;
     // edges
     edges.forEach(e=>{
       const a=nodes[e.a],b=nodes[e.b];
@@ -331,12 +348,12 @@
     });
   }
 
-  function loop(now){step();draw(now);requestAnimationFrame(loop);}
+  function loop(now){if(!state.selectedId)step();draw(now);requestAnimationFrame(loop);}
 
   /* ---------- pointer ---------- */
   function hit(qx,qy){
     for(let i=nodes.length-1;i>=0;i--){const n=nodes[i];if(!visible(n))continue;
-      const p=tiltPt(n.x*W,n.y*H),r=nodeRadius(n)+4;
+      const p=nodeScreenPos(n),r=nodeRadius(n)+4;
       if((qx-p.x)**2+(qy-p.y)**2<r*r)return n;}
     return null;
   }
@@ -355,9 +372,10 @@
   canvas.addEventListener('click',e=>{
     const r=canvas.getBoundingClientRect();const px=e.clientX-r.left,py=e.clientY-r.top;
     const h=hit(px,py);
-    if(h){state.selectedId=h.id;renderCard();}
-    else{state.selectedId=null;renderCard();}
+    if(h){state.selectedId=h.id;img.pause();renderCard();}
+    else deselect();
   });
+  function deselect(){if(state.selectedId===null)return;state.selectedId=null;img.play().catch(()=>{});renderCard();}
 
   /* ---------- side panel ---------- */
   function renderLegend(){
@@ -415,7 +433,7 @@
     const t=thoughts.find(x=>x.id===state.selectedId);if(!t)return;
     const n=nodes.find(nn=>nn.id===t.id);
     const hex=CATS[t.cat].hex;
-    const p=n?tiltPt(n.x*W,n.y*H):{x:W/2,y:H/2};
+    const p=n?nodeScreenPos(n):{x:W/2,y:H/2};
     const left=Math.max(12,Math.min((W||600)-296,p.x+22));
     const top=Math.max(12,Math.min(Math.max(12,(H||400)-340),p.y-20));
     const card=document.createElement('div');card.className='card';card.style.left=left+'px';card.style.top=top+'px';
@@ -427,7 +445,7 @@
       '<div class="meta">Urgency P'+t.prio+(t.done?' · done':'')+'</div>'+
       moodHtml(t)+
       '<div class="link">Open in Brain dump to edit or clear →</div>';
-    card.querySelector('.x').onclick=()=>{state.selectedId=null;renderCard();};
+    card.querySelector('.x').onclick=()=>deselect();
     card.querySelectorAll('.dt').forEach(b=>{b.onclick=()=>setMood(t.id,b.dataset.k,+b.dataset.v);});
     stage.appendChild(card);
   }

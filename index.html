@@ -281,7 +281,7 @@
   function phaseFor(id){
     if(!idlePhase[id]){const h=idHash(id);
       idlePhase[id]={px:(h%1000)/1000*6.283,py:((h>>10)%1000)/1000*6.283,
-        fx:0.18+((h>>4)%100)/100*0.22,fy:0.15+((h>>7)%100)/100*0.2,amp:5+((h>>2)%100)/100*4};}
+        fx:0.5+((h>>4)%100)/100*0.6,fy:0.42+((h>>7)%100)/100*0.55,amp:10+((h>>2)%100)/100*9};}
     return idlePhase[id];
   }
 
@@ -321,13 +321,19 @@
   function loop(now){
     const tm=(now-t0)/1000, minD=Math.min(W,H), sc=scene;
     if(!sc){requestAnimationFrame(loop);return;}
-    if(rawMx===null){tx=Math.sin(tm*0.15)*0.4;ty=Math.cos(tm*0.11)*0.26;}
-    px+=(tx-px)*0.06; py+=(ty-py)*0.06;
+    if(rawMx===null&&!state.selectedId){
+      // tie the idle sway to the video's own clock (it loops, so sin() returns to 0
+      // right at the loop point — no jump) so the overlay visibly moves *with* it
+      // instead of drifting on its own separate, much slower rhythm
+      const dur=(img.duration||10.04), vphase=((img.currentTime||0)/dur)*6.2832;
+      tx=Math.sin(vphase)*0.55; ty=Math.cos(vphase*0.85)*0.34;
+    }
+    if(!state.selectedId){px+=(tx-px)*0.1; py+=(ty-py)*0.1;}
     ctx.clearRect(0,0,W,H);
     computeImg();
     ctx.globalCompositeOperation='source-over';
     ctx.fillStyle='#03060f';ctx.fillRect(0,0,W,H);
-    const bob=Math.sin(tm*0.4)*4;
+    const bob=state.selectedId?0:Math.sin(tm*0.4)*4;
     brainOff={x:-px*22,y:-py*16+bob};
     const cxI=imgT.ox+imgT.dw/2+brainOff.x, cyI=imgT.oy+imgT.dh/2+brainOff.y;
     const tScaleX=1-Math.abs(px)*0.07, tScaleY=1-Math.abs(py)*0.08;
@@ -407,8 +413,8 @@
     const hov=hovered, selId=state.selectedId;
     for(const th of ths){
       const base0=neuronScreen(th), base=tiltPoint(base0.x,base0.y);
-      const ph=phaseFor(th.id);
-      let px2=base.x+Math.sin(tm*ph.fx+ph.px)*ph.amp, py2=base.y+Math.cos(tm*ph.fy+ph.py)*ph.amp;
+      const ph=phaseFor(th.id), wt=selId?0:1;
+      let px2=base.x+Math.sin(tm*ph.fx+ph.px)*ph.amp*wt, py2=base.y+Math.cos(tm*ph.fy+ph.py)*ph.amp*wt;
       let prox=0;
       if(rawMx!==null){const dd=Math.hypot(rawMx-px2,rawMy-py2);
         if(dd<110){prox=1-dd/110;px2+=(rawMx-px2)*prox*0.12;py2+=(rawMy-py2)*prox*0.12;}}
@@ -475,7 +481,7 @@
       if((mx-p.x)**2+(my-p.y)**2<20*20){
         ripples.push({x:p.x,y:p.y,t0:performance.now(),col:hexRgb(CATS[th.cat].hex)});
         select(th.id);return;}}
-    if(state.selectedId!==null){state.selectedId=null;renderCard();renderList();}
+    deselect();
   });
 
   /* ---------- actions ---------- */
@@ -493,7 +499,8 @@
   function deleteThought(id){state.thoughts=state.thoughts.filter(t=>t.id!==id);
     if(state.selectedId===id)state.selectedId=null;persist();renderAll();}
   function editText(id,text){const th=state.thoughts.find(t=>t.id===id);if(th){th.text=text;th.ai=null;persist();renderList();}}
-  function select(id){state.selectedId=id;renderCard();renderList();}
+  function select(id){state.selectedId=id;img.pause();renderCard();renderList();}
+  function deselect(){if(state.selectedId===null)return;state.selectedId=null;img.play().catch(()=>{});renderCard();renderList();}
 
   async function clearThought(th){
     const card=$('#stage .card');if(!card)return;
@@ -653,7 +660,7 @@
       '<button class="del">Delete</button></div>'+
       (t.ai ? '<div class="ai">'+aiHtml(t.ai)+'</div>'
             : '<button class="clearbtn">'+clearLabel+'</button><div class="ai"></div>');
-    card.querySelector('.x').onclick=()=>{state.selectedId=null;renderCard();renderList();};
+    card.querySelector('.x').onclick=()=>deselect();
     card.querySelector('textarea').oninput=e=>editText(t.id,e.target.value);
     card.querySelector('.done').onclick=()=>toggleDone(t.id);
     card.querySelector('.del').onclick=()=>deleteThought(t.id);
@@ -668,7 +675,7 @@
   $('#draft').addEventListener('input',e=>{state.draft=e.target.value;});
   $('#draft').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();addThought();}});
   $('#addBtn').addEventListener('click',addThought);
-  document.addEventListener('keydown',e=>{if(e.key==='Escape'){$('#planModal').classList.remove('open');if(state.selectedId){state.selectedId=null;renderCard();renderList();}}});
+  document.addEventListener('keydown',e=>{if(e.key==='Escape'){$('#planModal').classList.remove('open');deselect();}});
 
   buildControls();renderAll();
   buildScene();resize();
