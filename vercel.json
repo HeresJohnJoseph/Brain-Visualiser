@@ -1,0 +1,6 @@
+{
+  "functions": {
+    "api/clear.py": { "maxDuration": 30 },
+    "api/focus.py": { "maxDuration": 30 }
+  }
+}
