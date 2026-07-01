@@ -43,8 +43,8 @@ Or double-click **`Start Headroom.command`**. No `npm install`, no build step
 
 The app is split so it deploys as-is with zero config:
 
-- `index.html`, `dashboard.html`, `connections.html`, `brain.png` — served as
-  static files.
+- `index.html`, `dashboard.html`, `connections.html`, `brain.png`, `brain.mp4` —
+  served as static files.
 - `api/clear.py`, `api/focus.py` — Vercel Python serverless functions (Vercel
   auto-detects any `.py` file under `/api`), replacing `server.py`'s proxy
   role in production. `server.py` itself is only used for local dev and is
@@ -67,7 +67,8 @@ Steps:
 | `index.html` | Brain dump — canvas physics + capture + AI clearing |
 | `dashboard.html` | Overview — command-center dashboard |
 | `connections.html` | Connections — force-directed graph view |
-| `brain.png` | The anatomical brain hero image, shared by all pages |
+| `brain.png` | Static anatomical brain image — Overview dashboard hero |
+| `brain.mp4` | Looping animated brain render (H.264, 720p) — Brain dump & Connections backdrop |
 | `server.py` | Local dev only: static server + Claude proxy |
 | `api/clear.py`, `api/focus.py` | Production: Vercel serverless equivalents |
 | `Start Headroom.command` | Double-click local launcher |

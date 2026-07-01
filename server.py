@@ -275,6 +275,7 @@ class Handler(BaseHTTPRequestHandler):
             ".jpg": "image/jpeg",
             ".jpeg": "image/jpeg",
             ".webp": "image/webp",
+            ".mp4": "video/mp4",
         }.get(target.suffix, "application/octet-stream")
         self._send(200, target.read_bytes(), ctype)
 
