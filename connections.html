@@ -23,7 +23,12 @@
 
   .outer{display:flex;flex-direction:row;width:100%;height:100vh;background:#03060f;}
   .stage{position:relative;flex:1 1 auto;width:100%;height:100%;overflow:hidden;}
-  .stage canvas{display:block;width:100%;height:100%;}
+  .stage canvas{display:block;width:100%;height:100%;position:absolute;inset:0;}
+  .stage canvas#cv3d{touch-action:none;cursor:grab;}
+  .stage canvas#cv3d:active{cursor:grabbing;}
+  .neurontip{position:absolute;pointer-events:none;transform:translate(-50%,-130%);
+    background:rgba(6,12,26,0.88);border-radius:8px;padding:6px 10px;font-size:13px;font-weight:600;
+    color:#fff;white-space:nowrap;box-shadow:0 8px 20px rgba(0,0,0,0.4);z-index:5;}
 
   .title{position:absolute;left:18px;top:16px;pointer-events:none;}
   .title .k{font-family:var(--mono);font-size:11px;letter-spacing:2.5px;text-transform:uppercase;color:rgba(214,226,248,0.5);}
@@ -99,7 +104,7 @@
 <body>
   <div class="outer">
     <div class="stage" id="stage">
-      <canvas id="cv"></canvas>
+      <canvas id="cv3d"></canvas>
       <div class="title"><div class="k">Headroom</div><div class="h">How it connects</div></div>
       <div class="nav">
         <a href="index.html">Brain dump</a><a href="dashboard.html">Overview</a><a class="on" href="connections.html">Connections</a>
@@ -121,11 +126,18 @@
         <div class="modewrap" id="moodModes"></div>
       </div>
       <div class="sec" id="statsBox"></div>
-      <div class="hintbox">Drag a node to move it. Click a node to open it, rate joy / stress / excitement, or clear it from the Brain dump page.</div>
+      <div class="hintbox">Drag anywhere to rotate the brain. Click a node to open it, rate joy / stress / excitement, or clear it from the Brain dump page.</div>
     </aside>
   </div>
 
-<script>
+<script type="importmap">
+{"imports":{
+  "three":"https://unpkg.com/three@0.160.0/build/three.module.js",
+  "three/addons/":"https://unpkg.com/three@0.160.0/examples/jsm/"
+}}
+</script>
+<script type="module" src="brain3d.js"></script>
+<script type="module">
 (function(){
   "use strict";
   const $=s=>document.querySelector(s);
@@ -152,208 +164,80 @@
 
   const state={activeCats:new Set(CAT_ORDER),sizeBy:'prio',selectedId:null};
 
-  /* ---------- graph nodes / edges ---------- */
-  let nodes=[], edges=[];
+  /* ---------- graph edges (positions come straight from each thought's own x,y — same
+     anatomical mapping as Brain dump — so there is no separate physics simulation) ---------- */
+  let edges=[];
   function moodOf(t,k){return (t.mood&&t.mood[k])||0;}
-  function rebuildNodes(){
-    const byId={};
-    nodes=thoughts.map((t,i)=>{
-      const l=(CATS[t.cat]&&CATS[t.cat].lobe)||{x:.5,y:.5};
-      const a=Math.random()*6.2832;
-      return {id:t.id,x:l.x+Math.cos(a)*0.05,y:l.y+Math.sin(a)*0.05,vx:0,vy:0,t};
-    });
-    const byIndex={};nodes.forEach((n,i)=>byIndex[n.id]=i);
+  function visible(t){return state.activeCats.has(t.cat)&&!t.done;}
+  function rebuildEdges(){
     edges=[];
-    // cluster edges: connect each node to its 2 nearest same-category peers
     CAT_ORDER.forEach(cat=>{
-      const idx=nodes.map((n,i)=>i).filter(i=>nodes[i].t.cat===cat);
+      const idx=thoughts.map((t,i)=>i).filter(i=>thoughts[i].cat===cat);
       idx.forEach(i=>{
-        const others=idx.filter(j=>j!==i);
-        others.slice(0,2).forEach(j=>{
-          if(!edges.some(e=>(e.a===i&&e.b===j)||(e.a===j&&e.b===i)))
-            edges.push({a:i,b:j,kind:'cluster'});
+        idx.filter(j=>j!==i).slice(0,2).forEach(j=>{
+          if(!edges.some(e=>(e.a===thoughts[i].id&&e.b===thoughts[j].id)||(e.a===thoughts[j].id&&e.b===thoughts[i].id)))
+            edges.push({a:thoughts[i].id,b:thoughts[j].id,kind:'cluster'});
         });
       });
     });
-    // stress edges: any two non-done thoughts both rated stress>=4, across categories
-    const stressed=nodes.map((n,i)=>i).filter(i=>moodOf(nodes[i].t,'stress')>=4 && !nodes[i].t.done);
-    for(let a=0;a<stressed.length;a++)for(let b=a+1;b<stressed.length;b++){
-      edges.push({a:stressed[a],b:stressed[b],kind:'stress'});
-    }
-    // cross edges: every node reaches across to its nearest neighbor in a DIFFERENT
-    // category, so the graph reads as one connected brain, not isolated clusters
-    nodes.forEach((n,i)=>{
-      const others=nodes.map((n2,j)=>j).filter(j=>j!==i&&nodes[j].t.cat!==n.t.cat);
+    const stressed=thoughts.filter(t=>moodOf(t,'stress')>=4&&!t.done);
+    for(let a=0;a<stressed.length;a++)for(let b=a+1;b<stressed.length;b++)
+      edges.push({a:stressed[a].id,b:stressed[b].id,kind:'stress'});
+    thoughts.forEach(t=>{
+      const others=thoughts.filter(t2=>t2.id!==t.id&&t2.cat!==t.cat);
       if(!others.length)return;
-      others.sort((a,b)=>((nodes[a].x-n.x)**2+(nodes[a].y-n.y)**2)-((nodes[b].x-n.x)**2+(nodes[b].y-n.y)**2));
+      others.sort((a,b)=>((a.x-t.x)**2+(a.y-t.y)**2)-((b.x-t.x)**2+(b.y-t.y)**2));
       const j=others[0];
-      if(!edges.some(e=>(e.a===i&&e.b===j)||(e.a===j&&e.b===i)))
-        edges.push({a:i,b:j,kind:'cross'});
+      if(!edges.some(e=>(e.a===t.id&&e.b===j.id)||(e.a===j.id&&e.b===t.id)))
+        edges.push({a:t.id,b:j.id,kind:'cross'});
     });
   }
-  rebuildNodes();
+  function rebuildNodes(){rebuildEdges();refreshScene();}
+  rebuildEdges();
 
-  /* ---------- canvas ---------- */
-  const stage=$('#stage'), canvas=$('#cv'), ctx=canvas.getContext('2d');
-  const dpr=Math.min(window.devicePixelRatio||1,2);
-  let W=1,H=1, imgT={ox:0,oy:0,dw:1,dh:1};
-  function resize(){const w=stage.clientWidth||1,h=stage.clientHeight||1;W=w;H=h;
-    canvas.width=Math.round(w*dpr);canvas.height=Math.round(h*dpr);ctx.setTransform(dpr,0,0,dpr,0,0);}
-  resize();new ResizeObserver(resize).observe(stage);
-  const img=new Image();img.src='brain.png';
-  function computeImg(){const iw=(img&&img.naturalWidth)||1200,ih=(img&&img.naturalHeight)||800;
-    const s=Math.max(W/iw,H/ih),dw=iw*s,dh=ih*s;imgT={ox:(W-dw)/2,oy:(H-dh)/2,dw,dh};}
-  const photoToScreen=(nx,ny)=>({x:imgT.ox+nx*imgT.dw,y:imgT.oy+ny*imgT.dh});
+  /* ---------- real 3D brain ---------- */
+  const brain3D=HeadroomBrain3D.createBrainScene($('#cv3d'),{});
+  const stage=$('#stage');
+  const tip=document.createElement('div');tip.className='neurontip';tip.style.display='none';
+  stage.appendChild(tip);
+  let hoverId=null;
 
-  const CLUSTER_CENTER={};
-  CAT_ORDER.forEach(k=>CLUSTER_CENTER[k]=CATS[k].lobe);
-
-  let dragId=null, dragging=false, hoverId=null, mx=0,my=0, rawMx=null, rawMy=null;
-  let px=0,py=0,tx=0,ty=0,t0=performance.now();
-  let tScaleX=1,tScaleY=1,tSkewX=0,tSkewY=0,cxI=0,cyI=0;
-  function tiltPt(x,y){const dx=x-cxI,dy=y-cyI;
-    return {x:cxI+dx*tScaleX+dy*tSkewX, y:cyI+dy*tScaleY+dx*tSkewY};}
-
-  function visible(n){return state.activeCats.has(n.t.cat)&&!n.t.done;}
-
-  function step(){
-    const active=nodes.filter(visible);
-    // repulsion
-    for(let i=0;i<active.length;i++){
-      for(let j=i+1;j<active.length;j++){
-        const a=active[i],b=active[j];
-        let dx=(a.x-b.x)*W, dy=(a.y-b.y)*H;
-        let d2=dx*dx+dy*dy; if(d2<1)d2=1;
-        const d=Math.sqrt(d2);
-        const force=1000/d2;
-        const fx=(dx/d)*force, fy=(dy/d)*force;
-        a.vx+=fx/W; a.vy+=fy/H; b.vx-=fx/W; b.vy-=fy/H;
-      }
-    }
-    // cluster pull — hold each node near its category's anatomical lobe
-    active.forEach(n=>{
-      const c=CLUSTER_CENTER[n.t.cat]||{x:.5,y:.5};
-      n.vx+=(c.x-n.x)*0.020; n.vy+=(c.y-n.y)*0.020;
-    });
-    // edge springs
-    edges.forEach(e=>{
-      const a=nodes[e.a],b=nodes[e.b];
-      if(!visible(a)||!visible(b))return;
-      const dx=(b.x-a.x)*W, dy=(b.y-a.y)*H;
-      const d=Math.sqrt(dx*dx+dy*dy)||1;
-      const target=e.kind==='stress'?55:e.kind==='cross'?150:60;
-      const k=e.kind==='stress'?0.0022:e.kind==='cross'?0.0007:0.0014;
-      const f=(d-target)*k;
-      const fx=(dx/d)*f, fy=(dy/d)*f;
-      a.vx+=fx/W; a.vy+=fy/H; b.vx-=fx/W; b.vy-=fy/H;
-    });
-    active.forEach(n=>{
-      if(n===dragNode)return;
-      n.vx*=0.82; n.vy*=0.82;
-      n.x+=n.vx; n.y+=n.vy;
-      n.x=Math.max(0.03,Math.min(0.97,n.x)); n.y=Math.max(0.03,Math.min(0.97,n.y));
-    });
+  function nodeRadius(t){
+    const base=0.03;
+    if(state.sizeBy==='prio')return base+t.prio*0.012;
+    return base+moodOf(t,state.sizeBy)*0.011;
   }
-  let dragNode=null;
-
-  function nodeRadius(n){
-    const base=6;
-    if(state.sizeBy==='prio')return base+n.t.prio*2.6;
-    const v=moodOf(n.t,state.sizeBy);
-    return base+v*2.4;
-  }
-  function nodeColor(n){
-    if(state.sizeBy==='stress'||state.sizeBy==='joy'||state.sizeBy==='excitement'){
+  function nodeColor(t){
+    if(state.sizeBy!=='prio'){
       const md=MOODS.find(m=>m.key===state.sizeBy);
-      const v=moodOf(n.t,state.sizeBy);
-      if(v>0)return hexRgb(md.hex);
+      if(moodOf(t,state.sizeBy)>0)return md.hex;
     }
-    return hexRgb(CATS[n.t.cat].hex);
+    return CATS[t.cat].hex;
+  }
+  function refreshScene(){
+    const specs=thoughts.filter(visible).map(t=>({
+      id:t.id,nx:t.x,ny:t.y,color:nodeColor(t),radius:nodeRadius(t),
+      pulseSpeed:t.cat==='worry'?2.4:1.4,phase:t.x*17,
+      highlight:hoverId===t.id||state.selectedId===t.id}));
+    brain3D.setNeurons(specs);
+    const edgeColor=k=>k==='stress'?0xff5a3c:k==='cross'?0xffbe6e:0xffffff;
+    const edgeOpacity=k=>k==='stress'?0.55:k==='cross'?0.22:0.14;
+    brain3D.setEdges(edges.filter(e=>{
+      const ta=thoughts.find(t=>t.id===e.a), tb=thoughts.find(t=>t.id===e.b);
+      return ta&&tb&&visible(ta)&&visible(tb);
+    }).map(e=>({a:e.a,b:e.b,color:edgeColor(e.kind),opacity:edgeOpacity(e.kind)})));
+    renderStats();
   }
 
-  function draw(now){
-    const tm=((now||performance.now())-t0)/1000;
-    if(rawMx===null){tx=Math.sin(tm*0.13)*0.35;ty=Math.cos(tm*0.1)*0.22;}
-    px+=(tx-px)*0.05; py+=(ty-py)*0.05;
-    ctx.clearRect(0,0,W,H);
-    ctx.fillStyle='#03060f';ctx.fillRect(0,0,W,H);
-    computeImg();
-    cxI=imgT.ox+imgT.dw/2; cyI=imgT.oy+imgT.dh/2;
-    tScaleX=1-Math.abs(px)*0.06; tScaleY=1-Math.abs(py)*0.07;
-    tSkewX=py*0.10; tSkewY=px*0.08;
-    ctx.save();
-    ctx.translate(cxI,cyI);ctx.transform(tScaleX,tSkewY,tSkewX,tScaleY,0,0);ctx.translate(-cxI,-cyI);
-    if(img.complete&&img.naturalWidth){ctx.globalAlpha=0.62;ctx.drawImage(img,imgT.ox,imgT.oy,imgT.dw,imgT.dh);ctx.globalAlpha=1;}
-    ctx.restore();
-    const pos=n=>tiltPt(n.x*W,n.y*H);
-    // edges
-    edges.forEach(e=>{
-      const a=nodes[e.a],b=nodes[e.b];
-      if(!visible(a)||!visible(b))return;
-      const pa=pos(a),pb=pos(b);
-      if(e.kind==='stress'){
-        ctx.strokeStyle='rgba(255,90,60,0.5)';ctx.lineWidth=1.4;
-        ctx.setLineDash([3,4]);
-      }else if(e.kind==='cross'){
-        ctx.strokeStyle='rgba(255,190,110,0.16)';ctx.lineWidth=1;
-        ctx.setLineDash([]);
-      }else{
-        ctx.strokeStyle='rgba(255,255,255,0.1)';ctx.lineWidth=1;
-        ctx.setLineDash([]);
-      }
-      ctx.beginPath();ctx.moveTo(pa.x,pa.y);ctx.lineTo(pb.x,pb.y);ctx.stroke();
-    });
-    ctx.setLineDash([]);
-    // nodes
-    nodes.forEach(n=>{
-      if(!visible(n))return;
-      const p=pos(n), r=nodeRadius(n), col=nodeColor(n);
-      const isHov=hoverId===n.id||state.selectedId===n.id;
-      const g=ctx.createRadialGradient(p.x,p.y,0,p.x,p.y,r*2.4);
-      g.addColorStop(0,rgba(col,0.5));g.addColorStop(1,rgba(col,0));
-      ctx.fillStyle=g;ctx.beginPath();ctx.arc(p.x,p.y,r*2.4,0,6.2832);ctx.fill();
-      ctx.fillStyle=n.t.cat==='worry'?'rgba(255,120,100,0.95)':rgba(col,0.95);
-      ctx.beginPath();ctx.arc(p.x,p.y,r,0,6.2832);ctx.fill();
-      if(isHov){ctx.lineWidth=2;ctx.strokeStyle='#fff';ctx.beginPath();ctx.arc(p.x,p.y,r+4,0,6.2832);ctx.stroke();}
-      if(isHov){
-        ctx.font="600 12px "+getComputedStyle(document.body).fontFamily;
-        let txt=n.t.text;if(txt.length>34)txt=txt.slice(0,33)+'…';
-        const tw=ctx.measureText(txt).width;
-        let lx=p.x+r+10,ly=p.y-8;
-        if(lx+tw+12>W)lx=p.x-r-tw-22;
-        ctx.fillStyle='rgba(6,12,26,0.85)';
-        ctx.beginPath();ctx.roundRect?ctx.roundRect(lx-6,ly-14,tw+12,20,6):ctx.rect(lx-6,ly-14,tw+12,20);ctx.fill();
-        ctx.fillStyle='#fff';ctx.fillText(txt,lx,ly+1);
-      }
-    });
-  }
-
-  function loop(now){step();draw(now);requestAnimationFrame(loop);}
-
-  /* ---------- pointer ---------- */
-  function hit(qx,qy){
-    for(let i=nodes.length-1;i>=0;i--){const n=nodes[i];if(!visible(n))continue;
-      const p=tiltPt(n.x*W,n.y*H),r=nodeRadius(n)+4;
-      if((qx-p.x)**2+(qy-p.y)**2<r*r)return n;}
-    return null;
-  }
-  canvas.addEventListener('mousemove',e=>{
-    const r=canvas.getBoundingClientRect();mx=e.clientX-r.left;my=e.clientY-r.top;
-    tx=(mx/W-0.5);ty=(my/H-0.5);rawMx=mx;rawMy=my;
-    if(dragNode){dragNode.x=mx/W;dragNode.y=my/H;dragNode.vx=0;dragNode.vy=0;return;}
-    const h=hit(mx,my);hoverId=h?h.id:null;canvas.style.cursor=h?'pointer':'default';
+  brain3D.on('hover',id=>{hoverId=id;refreshScene();
+    if(id){const t=thoughts.find(x=>x.id===id);const p=brain3D.screenPos(id);
+      if(t&&p&&!p.behind){tip.style.display='block';tip.style.left=p.x+'px';tip.style.top=p.y+'px';
+        let txt=t.text;if(txt.length>38)txt=txt.slice(0,37)+'…';tip.textContent=txt;}
+      else tip.style.display='none';
+    } else tip.style.display='none';
   });
-  canvas.addEventListener('mouseleave',()=>{rawMx=null;rawMy=null;hoverId=null;});
-  canvas.addEventListener('mousedown',e=>{
-    const r=canvas.getBoundingClientRect();const px=e.clientX-r.left,py=e.clientY-r.top;
-    const h=hit(px,py);if(h)dragNode=h;
-  });
-  window.addEventListener('mouseup',()=>{dragNode=null;});
-  canvas.addEventListener('click',e=>{
-    const r=canvas.getBoundingClientRect();const px=e.clientX-r.left,py=e.clientY-r.top;
-    const h=hit(px,py);
-    if(h){state.selectedId=h.id;renderCard();}
-    else{state.selectedId=null;renderCard();}
+  brain3D.on('click',id=>{
+    state.selectedId=id; brain3D.setIdle(!id); refreshScene(); renderCard();
   });
 
   /* ---------- side panel ---------- */
@@ -368,7 +252,7 @@
     CAT_ORDER.forEach(k=>{
       const b=document.createElement('button');b.className='chip'+(state.activeCats.has(k)?'':' off');
       b.innerHTML='<span class="d" style="background:'+CATS[k].hex+'"></span>'+CATS[k].label;
-      b.onclick=()=>{if(state.activeCats.has(k))state.activeCats.delete(k);else state.activeCats.add(k);renderChips();renderStats();};
+      b.onclick=()=>{if(state.activeCats.has(k))state.activeCats.delete(k);else state.activeCats.add(k);renderChips();refreshScene();};
       el.appendChild(b);
     });
   }
@@ -377,14 +261,17 @@
     [{key:'prio',label:'Urgency'},...MOODS.map(m=>({key:m.key,label:m.label}))].forEach(m=>{
       const b=document.createElement('button');b.className='modebtn'+(state.sizeBy===m.key?' on':'');
       b.textContent=m.label;
-      b.onclick=()=>{state.sizeBy=m.key;renderModes();};
+      b.onclick=()=>{state.sizeBy=m.key;renderModes();refreshScene();};
       el.appendChild(b);
     });
   }
   function renderStats(){
     const open=thoughts.filter(t=>!t.done);
     const visCount=open.filter(t=>state.activeCats.has(t.cat)).length;
-    const stressLinks=edges.filter(e=>e.kind==='stress'&&visible(nodes[e.a])&&visible(nodes[e.b])).length;
+    const stressLinks=edges.filter(e=>{
+      const ta=thoughts.find(t=>t.id===e.a), tb=thoughts.find(t=>t.id===e.b);
+      return e.kind==='stress'&&ta&&tb&&visible(ta)&&visible(tb);
+    }).length;
     $('#statsBox').innerHTML=
       '<div class="st">At a glance</div>'+
       '<div class="stat"><span>Visible thoughts</span><b>'+visCount+'</b></div>'+
@@ -404,17 +291,16 @@
     const t=thoughts.find(x=>x.id===id);if(!t)return;
     if(!t.mood)t.mood={joy:0,stress:0,excitement:0};
     t.mood[key]=t.mood[key]===val?0:val;
-    persist();rebuildNodes();renderCard();renderStats();
+    persist();rebuildEdges();refreshScene();renderCard();
   }
   function renderCard(){
     const old=$('#stage .card');if(old)old.remove();
     if(!state.selectedId)return;
     const t=thoughts.find(x=>x.id===state.selectedId);if(!t)return;
-    const n=nodes.find(nn=>nn.id===t.id);
     const hex=CATS[t.cat].hex;
-    const p=n?tiltPt(n.x*W,n.y*H):{x:W/2,y:H/2};
-    const left=Math.max(12,Math.min((W||600)-296,p.x+22));
-    const top=Math.max(12,Math.min(Math.max(12,(H||400)-340),p.y-20));
+    const p=brain3D.screenPos(t.id)||{x:innerWidth/2,y:innerHeight/2};
+    const left=Math.max(12,Math.min((stage.clientWidth||600)-296,p.x+22));
+    const top=Math.max(12,Math.min(Math.max(12,(stage.clientHeight||400)-340),p.y-20));
     const card=document.createElement('div');card.className='card';card.style.left=left+'px';card.style.top=top+'px';
     card.innerHTML=
       '<div class="row"><span class="dot" style="background:'+hex+';box-shadow:0 0 10px '+hex+'"></span>'+
@@ -424,13 +310,12 @@
       '<div class="meta">Urgency P'+t.prio+(t.done?' · done':'')+'</div>'+
       moodHtml(t)+
       '<div class="link">Open in Brain dump to edit or clear →</div>';
-    card.querySelector('.x').onclick=()=>{state.selectedId=null;renderCard();};
+    card.querySelector('.x').onclick=()=>{state.selectedId=null;brain3D.setIdle(true);refreshScene();renderCard();};
     card.querySelectorAll('.dt').forEach(b=>{b.onclick=()=>setMood(t.id,b.dataset.k,+b.dataset.v);});
     stage.appendChild(card);
   }
 
-  renderLegend();renderChips();renderModes();renderStats();
-  requestAnimationFrame(loop);
+  renderLegend();renderChips();renderModes();refreshScene();
 })();
 </script>
 </body>

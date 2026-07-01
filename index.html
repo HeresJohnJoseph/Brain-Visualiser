@@ -162,15 +162,21 @@
     .panel{width:100%;border-left:none;border-top:1px solid rgba(255,255,255,0.08);}
     .list{min-height:240px;}
   }
+  .brain canvas#cv3d{position:absolute;inset:0;touch-action:none;cursor:grab;}
+  .brain canvas#cv3d:active{cursor:grabbing;}
+  .neurontip{position:absolute;pointer-events:none;transform:translate(-50%,-130%);
+    background:rgba(6,12,26,0.88);border-radius:8px;padding:6px 10px;font-size:13px;font-weight:600;
+    color:#fff;white-space:nowrap;box-shadow:0 8px 20px rgba(0,0,0,0.4);z-index:5;}
 </style>
 </head>
 <body>
   <div class="outer">
     <div class="brain" id="stage">
       <canvas id="cv"></canvas>
+      <canvas id="cv3d"></canvas>
       <div class="title"><div class="k">Headroom</div><div class="h">What's on your mind</div></div>
       <div class="nav"><a class="on" href="index.html">Brain dump</a><a href="dashboard.html">Overview</a><a href="connections.html">Connections</a></div>
-      <div class="hint"><span class="d"></span><span class="t">Click a neuron to read it · worries glow red-hot</span></div>
+      <div class="hint"><span class="d"></span><span class="t">Drag to rotate · click a neuron to read it · worries glow red-hot</span></div>
     </div>
 
     <aside class="panel">
@@ -208,7 +214,14 @@
     </div>
   </div>
 
-<script>
+<script type="importmap">
+{"imports":{
+  "three":"https://unpkg.com/three@0.160.0/build/three.module.js",
+  "three/addons/":"https://unpkg.com/three@0.160.0/examples/jsm/"
+}}
+</script>
+<script type="module" src="brain3d.js"></script>
+<script type="module">
 (function(){
   "use strict";
   const $=s=>document.querySelector(s);
@@ -270,209 +283,77 @@
   (function boot(){let t=null;try{const raw=localStorage.getItem(LS);if(raw)t=JSON.parse(raw);}catch(e){}
     state.thoughts=(t&&Array.isArray(t)&&t.length)?t:seed();})();
 
-  /* ---------- canvas ---------- */
+  /* ---------- 2D backdrop (bokeh / stars / ambient network) ---------- */
   const stage=$('#stage'), canvas=$('#cv'), ctx=canvas.getContext('2d');
   const dpr=Math.min(window.devicePixelRatio||1,2);
-  let W=1,H=1, imgT={ox:0,oy:0,dw:1,dh:1}, brainOff={x:0,y:0};
-  let px=0,py=0,tx=0,ty=0, hovered=null, lastPos={}, t0=performance.now(), scene=null;
-  let rawMx=null, rawMy=null, ripples=[];
-  const idHash=id=>{let h=0;for(let i=0;i<id.length;i++)h=(h*31+id.charCodeAt(i))>>>0;return h;};
-  const idlePhase={};
-  function phaseFor(id){
-    if(!idlePhase[id]){const h=idHash(id);
-      idlePhase[id]={px:(h%1000)/1000*6.283,py:((h>>10)%1000)/1000*6.283,
-        fx:0.18+((h>>4)%100)/100*0.22,fy:0.15+((h>>7)%100)/100*0.2,amp:5+((h>>2)%100)/100*4};}
-    return idlePhase[id];
-  }
-
-  const img=new Image(); img.src='brain.png';
+  let W=1,H=1, t0=performance.now(), scene=null;
+  let hovered=null, lastPos={}, ripples=[];
 
   function buildScene(){
     const d=DENSITY, bokeh=[];
     for(let i=0;i<Math.round(15*d);i++)bokeh.push({x:Math.random(),y:Math.random(),r:rnd(0.04,0.16),
       col:PAL[BOKEH_COLS[Math.floor(Math.random()*BOKEH_COLS.length)]],ph:rnd(0,6.28),tw:rnd(0.15,0.5),
       vx:rnd(-0.012,0.012),vy:rnd(-0.01,0.01),depth:rnd(0.3,1)});
-    const nodes=[],N=Math.round(18*d);
-    for(let i=0;i<N;i++)nodes.push({x:Math.random(),y:Math.random(),depth:rnd(0.4,1)});
-    const edges=[];
-    for(let i=0;i<N;i++){const ds=nodes.map((n,j)=>({j,d:j===i?1e9:(n.x-nodes[i].x)**2+(n.y-nodes[i].y)**2}));
-      ds.sort((a,b)=>a.d-b.d);
-      for(let k=0;k<2;k++){const j=ds[k].j;if(!edges.some(e=>(e.a===j&&e.b===i)||(e.a===i&&e.b===j)))edges.push({a:i,b:j});}}
-    const pulses=[];
-    for(let i=0;i<Math.round(12*d);i++)pulses.push({e:Math.floor(Math.random()*edges.length),t:Math.random(),sp:rnd(0.12,0.32)});
     const stars=[];
     for(let i=0;i<Math.round(100*d);i++)stars.push({x:Math.random(),y:Math.random(),r:rnd(0.4,1.6),ph:rnd(0,6.28),
       tw:rnd(0.6,1.6),col:Math.random()<0.7?PAL.white:(Math.random()<0.6?PAL.orange:PAL.amber),depth:rnd(0.6,1.4)});
-    scene={bokeh,nodes,edges,pulses,stars};
+    scene={bokeh,stars};
   }
   function resize(){const w=stage.clientWidth||1,h=stage.clientHeight||1;W=w;H=h;
     canvas.width=Math.round(w*dpr);canvas.height=Math.round(h*dpr);ctx.setTransform(dpr,0,0,dpr,0,0);}
-  function computeImg(){const iw=(img&&img.naturalWidth)||1200,ih=(img&&img.naturalHeight)||800;
-    const s=Math.max(W/iw,H/ih),dw=iw*s,dh=ih*s;imgT={ox:(W-dw)/2,oy:(H-dh)/2,dw,dh};}
-  const photoToScreen=(nx,ny)=>({x:imgT.ox+nx*imgT.dw,y:imgT.oy+ny*imgT.dh});
-  const neuronScreen=th=>{const p=photoToScreen(th.x,th.y);return {x:p.x+brainOff.x,y:p.y+brainOff.y};};
-
-  function roundRect(x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);
-    ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
 
   function loop(now){
     const tm=(now-t0)/1000, minD=Math.min(W,H), sc=scene;
     if(!sc){requestAnimationFrame(loop);return;}
-    if(rawMx===null){tx=Math.sin(tm*0.15)*0.4;ty=Math.cos(tm*0.11)*0.26;}
-    px+=(tx-px)*0.06; py+=(ty-py)*0.06;
     ctx.clearRect(0,0,W,H);
-    computeImg();
-    ctx.globalCompositeOperation='source-over';
     ctx.fillStyle='#03060f';ctx.fillRect(0,0,W,H);
-    const bob=Math.sin(tm*0.4)*4;
-    brainOff={x:-px*22,y:-py*16+bob};
-    const cxI=imgT.ox+imgT.dw/2+brainOff.x, cyI=imgT.oy+imgT.dh/2+brainOff.y;
-    const tScaleX=1-Math.abs(px)*0.07, tScaleY=1-Math.abs(py)*0.08;
-    const tSkewX=py*0.12, tSkewY=px*0.09;
-    const tiltPoint=(x,y)=>{const dx=x-cxI,dy=y-cyI;
-      return {x:cxI+dx*tScaleX+dy*tSkewX, y:cyI+dy*tScaleY+dx*tSkewY};};
-    ctx.save();
-    ctx.translate(cxI,cyI);ctx.transform(tScaleX,tSkewY,tSkewX,tScaleY,0,0);ctx.translate(-cxI,-cyI);
-    if(img&&img.complete&&img.naturalWidth)
-      ctx.drawImage(img,imgT.ox+brainOff.x,imgT.oy+brainOff.y,imgT.dw,imgT.dh);
-    ctx.restore();
-    ctx.globalCompositeOperation='overlay';
-    const shX=cxI-px*minD*0.55, shY=cyI-py*minD*0.45;
-    const sheen=ctx.createRadialGradient(shX,shY,0,shX,shY,minD*0.4);
-    sheen.addColorStop(0,'rgba(255,250,240,0.14)');sheen.addColorStop(1,'rgba(255,250,240,0)');
-    ctx.fillStyle=sheen;ctx.beginPath();ctx.arc(shX,shY,minD*0.4,0,6.2832);ctx.fill();
-    ctx.globalCompositeOperation='source-over';
-
-    const ths=state.thoughts, active=ths.filter(t=>!t.done);
-    const loadV=active.reduce((a,t)=>a+t.prio,0);
-    const worryV=active.filter(t=>t.cat==='worry').reduce((a,t)=>a+t.prio,0);
-    const wr=loadV?worryV/loadV:0;
-    const loadPct=Math.min(loadV/22,1);
-    const calmT=loadPct<0.65?(loadPct/0.65)*0.45:0.45+((loadPct-0.65)/0.35)*0.55;
-    const NEUTRAL={r:150,g:165,b:195};
-    const calm=c=>({r:NEUTRAL.r+(c.r-NEUTRAL.r)*calmT,g:NEUTRAL.g+(c.g-NEUTRAL.g)*calmT,b:NEUTRAL.b+(c.b-NEUTRAL.b)*calmT});
-    const hot=computeHot();
-    if(hot.hotCat){
-      const l=CATS[hot.hotCat].lobe, c0=photoToScreen(l.x,l.y), cp=tiltPoint(c0.x+brainOff.x,c0.y+brainOff.y), cx=cp.x, cy=cp.y;
-      const hc=hexRgb(CATS[hot.hotCat].hex);
-      const pulse=0.65+0.35*Math.sin(tm*1.8);
-      const rr=minD*(0.16+0.02*pulse);
-      const g=ctx.createRadialGradient(cx,cy,0,cx,cy,rr);
-      g.addColorStop(0,rgba(hc,0.30*pulse));g.addColorStop(0.6,rgba(hc,0.12*pulse));g.addColorStop(1,rgba(hc,0));
-      ctx.fillStyle=g;ctx.beginPath();ctx.arc(cx,cy,rr,0,6.2832);ctx.fill();
-      ctx.globalCompositeOperation='source-over';
-      ctx.setLineDash([4,5]);ctx.lineWidth=1.4;ctx.strokeStyle=rgba(hc,0.55*pulse);
-      ctx.beginPath();ctx.arc(cx,cy,rr*0.6,0,6.2832);ctx.stroke();ctx.setLineDash([]);
-      ctx.globalCompositeOperation='lighter';
-    }
-
     ctx.globalCompositeOperation='lighter';
-    if(loadV>0){
-      const c0=photoToScreen(0.515,0.5),cp=tiltPoint(c0.x+brainOff.x,c0.y+brainOff.y),cx=cp.x,cy=cp.y;
-      const auraFull={r:255,g:Math.round(122-wr*60),b:Math.round(47-wr*30)};
-      const aura=calm(auraFull);
-      const pulse=0.7+0.3*Math.sin(tm*(1.4+wr*1.6));
-      const al=Math.min(0.05+loadV*0.005,0.19)*pulse*(0.6+calmT*0.6), rr=minD*0.42;
-      const g=ctx.createRadialGradient(cx,cy,0,cx,cy,rr);
-      g.addColorStop(0,rgba(aura,al));g.addColorStop(0.55,rgba(aura,al*0.4));g.addColorStop(1,rgba(aura,0));
-      ctx.fillStyle=g;ctx.beginPath();ctx.arc(cx,cy,rr,0,6.2832);ctx.fill();
-    }
     for(const b of sc.bokeh){
       const tw=0.6+0.4*Math.sin(tm*b.tw+b.ph);
-      const bx=(((b.x+b.vx*tm)%1+1)%1)*W-px*50*b.depth, by=(((b.y+b.vy*tm)%1+1)%1)*H-py*38*b.depth;
+      const bx=(((b.x+b.vx*tm)%1+1)%1)*W, by=(((b.y+b.vy*tm)%1+1)%1)*H;
       const rr=b.r*minD*(0.85+0.15*tw);
       const g=ctx.createRadialGradient(bx,by,0,bx,by,rr);
-      g.addColorStop(0,rgba(b.col,0.4*tw*b.depth));g.addColorStop(0.45,rgba(b.col,0.11*tw*b.depth));g.addColorStop(1,rgba(b.col,0));
+      g.addColorStop(0,rgba(b.col,0.32*tw*b.depth));g.addColorStop(0.45,rgba(b.col,0.09*tw*b.depth));g.addColorStop(1,rgba(b.col,0));
       ctx.fillStyle=g;ctx.beginPath();ctx.arc(bx,by,rr,0,6.2832);ctx.fill();
-    }
-    const np=n=>({x:n.x*W-px*60*n.depth,y:n.y*H-py*46*n.depth});
-    ctx.lineWidth=1;
-    for(const e of sc.edges){const a=np(sc.nodes[e.a]),b=np(sc.nodes[e.b]);
-      ctx.strokeStyle=rgba(ACCENT,0.09);ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();}
-    for(const pu of sc.pulses){
-      pu.t+=pu.sp*PULSE_SPEED*0.016;if(pu.t>1){pu.t=0;pu.e=Math.floor(Math.random()*sc.edges.length);}
-      const e=sc.edges[pu.e];if(!e)continue;const a=np(sc.nodes[e.a]),b=np(sc.nodes[e.b]);
-      const x=a.x+(b.x-a.x)*pu.t,y=a.y+(b.y-a.y)*pu.t;
-      const g=ctx.createRadialGradient(x,y,0,x,y,6);g.addColorStop(0,rgba(PAL.amber,0.9));g.addColorStop(1,rgba(ACCENT,0));
-      ctx.fillStyle=g;ctx.beginPath();ctx.arc(x,y,6,0,6.2832);ctx.fill();
     }
     for(const st of sc.stars){
       const tw=0.4+0.6*Math.abs(Math.sin(tm*st.tw+st.ph));
-      const sx=st.x*W-px*90*st.depth,sy=st.y*H-py*70*st.depth;
-      ctx.fillStyle=rgba(st.col,0.85*tw);ctx.beginPath();ctx.arc(sx,sy,st.r,0,6.2832);ctx.fill();
-    }
-    const hov=hovered, selId=state.selectedId;
-    for(const th of ths){
-      const base0=neuronScreen(th), base=tiltPoint(base0.x,base0.y);
-      const ph=phaseFor(th.id);
-      let px2=base.x+Math.sin(tm*ph.fx+ph.px)*ph.amp, py2=base.y+Math.cos(tm*ph.fy+ph.py)*ph.amp;
-      let prox=0;
-      if(rawMx!==null){const dd=Math.hypot(rawMx-px2,rawMy-py2);
-        if(dd<110){prox=1-dd/110;px2+=(rawMx-px2)*prox*0.12;py2+=(rawMy-py2)*prox*0.12;}}
-      const p={x:px2,y:py2};lastPos[th.id]=p;
-      const cc=hexRgb(CATS[th.cat].hex), col=th.done?{r:150,g:165,b:190}:calm(cc);
-      const isW=th.cat==='worry'&&!th.done, isHov=hov===th.id||selId===th.id;
-      const pulse=0.5+0.5*Math.sin(tm*(isW?3.0:1.4)*PULSE_SPEED+th.x*17);
-      const baseR=2.4+th.prio*1.25;
-      const glowR=baseR*2.7*(1+(isW?0.55:0.28)*pulse)*(isHov?1.6:1)*(1+prox*0.5)*(th.done?0.5:1);
-      const al=(th.done?0.16:0.42+0.22*pulse)*(isHov?1.35:1)*(1+prox*0.4);
-      const g=ctx.createRadialGradient(p.x,p.y,0,p.x,p.y,glowR);
-      g.addColorStop(0,rgba(col,Math.min(al,0.95)));g.addColorStop(0.4,rgba(col,al*0.4));g.addColorStop(1,rgba(col,0));
-      ctx.fillStyle=g;ctx.beginPath();ctx.arc(p.x,p.y,glowR,0,6.2832);ctx.fill();
+      const sx=st.x*W,sy=st.y*H;
+      ctx.fillStyle=rgba(st.col,0.75*tw);ctx.beginPath();ctx.arc(sx,sy,st.r,0,6.2832);ctx.fill();
     }
     ctx.globalCompositeOperation='source-over';
-    let labelEl=null;
-    for(const th of ths){
-      const p=lastPos[th.id];if(!p)continue;
-      const cc=hexRgb(CATS[th.cat].hex), col=th.done?{r:150,g:165,b:190}:cc;
-      const isHov=hov===th.id||selId===th.id, baseR=2.4+th.prio*1.25;
-      ctx.fillStyle=th.done?rgba({r:190,g:200,b:220},0.55):rgba(PAL.white,0.95);
-      ctx.beginPath();ctx.arc(p.x,p.y,baseR*(isHov?1.3:1),0,6.2832);ctx.fill();
-      if(selId===th.id){ctx.lineWidth=2;ctx.strokeStyle=rgba(col,0.95);ctx.beginPath();ctx.arc(p.x,p.y,baseR+7,0,6.2832);ctx.stroke();}
-      else if(isHov){ctx.lineWidth=1.4;ctx.strokeStyle=rgba(col,0.7);ctx.beginPath();ctx.arc(p.x,p.y,baseR+5,0,6.2832);ctx.stroke();}
-      if(isHov&&selId!==th.id)labelEl={p,text:th.text,col};
-    }
-    if(ripples.length){
-      ripples=ripples.filter(rp=>(now-rp.t0)<900);
-      for(const rp of ripples){
-        const el=(now-rp.t0)/900, rr=8+el*46, al=(1-el)*0.55;
-        ctx.lineWidth=2;ctx.strokeStyle=rgba(rp.col,al);
-        ctx.beginPath();ctx.arc(rp.x,rp.y,rr,0,6.2832);ctx.stroke();
-      }
-    }
-    if(labelEl){
-      ctx.font="600 13px "+getComputedStyle(document.body).fontFamily;
-      let txt=labelEl.text;if(txt.length>38)txt=txt.slice(0,37)+'…';
-      const tw=ctx.measureText(txt).width;
-      let lx=labelEl.p.x+14,ly=labelEl.p.y-14;
-      if(lx+tw+12>W)lx=labelEl.p.x-tw-26;
-      ctx.fillStyle='rgba(6,12,26,0.82)';roundRect(lx-7,ly-14,tw+14,22,7);ctx.fill();
-      ctx.strokeStyle=rgba(labelEl.col,0.5);ctx.lineWidth=1;ctx.stroke();
-      ctx.fillStyle='#fff';ctx.fillText(txt,lx,ly+1);
-    }
     const vg=ctx.createRadialGradient(W/2,H/2,minD*0.25,W/2,H/2,minD*0.85);
     vg.addColorStop(0,'rgba(3,6,15,0)');vg.addColorStop(1,'rgba(2,4,11,0.6)');
     ctx.fillStyle=vg;ctx.fillRect(0,0,W,H);
     requestAnimationFrame(loop);
   }
 
-  /* ---------- pointer ---------- */
-  canvas.addEventListener('mousemove',e=>{
-    const r=canvas.getBoundingClientRect(),mx=e.clientX-r.left,my=e.clientY-r.top;
-    tx=(mx/W-0.5);ty=(my/H-0.5);rawMx=mx;rawMy=my;
-    let hit=null;
-    for(const th of state.thoughts){const p=lastPos[th.id];if(!p)continue;
-      if((mx-p.x)**2+(my-p.y)**2<20*20){hit=th.id;break;}}
-    hovered=hit;canvas.style.cursor=hit?'pointer':'default';
+  /* ---------- real 3D brain ---------- */
+  const brain3D=HeadroomBrain3D.createBrainScene($('#cv3d'),{});
+  const tip=document.createElement('div');tip.className='neurontip';tip.style.display='none';
+  stage.appendChild(tip);
+
+  function neuronSpecs(){
+    const selId=state.selectedId;
+    return state.thoughts.map(th=>{
+      const isW=th.cat==='worry'&&!th.done;
+      return {id:th.id,nx:th.x,ny:th.y,color:CATS[th.cat].hex,
+        radius:0.034+th.prio*0.013,pulseSpeed:isW?2.6:1.5,phase:th.x*17,
+        dim:th.done, highlight:hovered===th.id||selId===th.id};
+    });
+  }
+  function updateNeurons(){brain3D.setNeurons(neuronSpecs());}
+
+  brain3D.on('hover',id=>{hovered=id;updateNeurons();
+    if(id){const t=state.thoughts.find(x=>x.id===id);const p=brain3D.screenPos(id);
+      if(t&&p&&!p.behind){tip.style.display='block';tip.style.left=p.x+'px';tip.style.top=p.y+'px';
+        let txt=t.text;if(txt.length>38)txt=txt.slice(0,37)+'…';tip.textContent=txt;}
+      else tip.style.display='none';
+    } else tip.style.display='none';
   });
-  canvas.addEventListener('mouseleave',()=>{tx=0;ty=0;hovered=null;rawMx=null;rawMy=null;canvas.style.cursor='default';});
-  canvas.addEventListener('click',e=>{
-    const r=canvas.getBoundingClientRect(),mx=e.clientX-r.left,my=e.clientY-r.top;
-    for(const th of state.thoughts){const p=lastPos[th.id];if(!p)continue;
-      if((mx-p.x)**2+(my-p.y)**2<20*20){
-        ripples.push({x:p.x,y:p.y,t0:performance.now(),col:hexRgb(CATS[th.cat].hex)});
-        select(th.id);return;}}
-    if(state.selectedId!==null){state.selectedId=null;renderCard();renderList();}
+  brain3D.on('click',id=>{
+    if(id)select(id);
+    else if(state.selectedId!==null){state.selectedId=null;brain3D.setIdle(true);renderCard();renderList();}
   });
 
   /* ---------- actions ---------- */
@@ -490,7 +371,7 @@
   function deleteThought(id){state.thoughts=state.thoughts.filter(t=>t.id!==id);
     if(state.selectedId===id)state.selectedId=null;persist();renderAll();}
   function editText(id,text){const th=state.thoughts.find(t=>t.id===id);if(th){th.text=text;th.ai=null;persist();renderList();}}
-  function select(id){state.selectedId=id;renderCard();renderList();}
+  function select(id){state.selectedId=id;brain3D.setIdle(false);updateNeurons();renderCard();renderList();}
 
   async function clearThought(th){
     const card=$('#stage .card');if(!card)return;
@@ -584,6 +465,11 @@
     $('#activeCount').textContent=active.length;
     $('#loadLabel').textContent=loadLabel;
     const bar=$('#loadBar');bar.style.width=(loadPct*100)+'%';bar.style.background=loadHex;bar.style.boxShadow='0 0 10px '+loadHex;
+    brain3D.setAura(loadPct);
+    const hot=computeHot();
+    if(hot.hotCat)brain3D.setHotspot(CATS[hot.hotCat].lobe.x,CATS[hot.hotCat].lobe.y,CATS[hot.hotCat].hex);
+    else brain3D.setHotspot(null);
+    updateNeurons();
     renderTips();
   }
   function renderList(){
@@ -633,7 +519,7 @@
   function renderCard(){
     const old=$('#stage .card');if(old)old.remove();
     const t=state.thoughts.find(x=>x.id===state.selectedId);if(!t)return;
-    const hex=CATS[t.cat].hex, p=lastPos[t.id]||{x:W/2,y:H/2};
+    const hex=CATS[t.cat].hex, p=brain3D.screenPos(t.id)||{x:W/2,y:H/2};
     const left=Math.max(12,Math.min((W||600)-314,p.x+18));
     const top=Math.max(12,Math.min(Math.max(12,(H||400)-360),p.y-30));
     const card=document.createElement('div');card.className='card';card.style.left=left+'px';card.style.top=top+'px';
@@ -650,7 +536,7 @@
       '<button class="del">Delete</button></div>'+
       (t.ai ? '<div class="ai">'+aiHtml(t.ai)+'</div>'
             : '<button class="clearbtn">'+clearLabel+'</button><div class="ai"></div>');
-    card.querySelector('.x').onclick=()=>{state.selectedId=null;renderCard();renderList();};
+    card.querySelector('.x').onclick=()=>{state.selectedId=null;brain3D.setIdle(true);updateNeurons();renderCard();renderList();};
     card.querySelector('textarea').oninput=e=>editText(t.id,e.target.value);
     card.querySelector('.done').onclick=()=>toggleDone(t.id);
     card.querySelector('.del').onclick=()=>deleteThought(t.id);
