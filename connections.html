@@ -212,25 +212,38 @@
   function resize(){const w=stage.clientWidth||1,h=stage.clientHeight||1;W=w;H=h;
     canvas.width=Math.round(w*dpr);canvas.height=Math.round(h*dpr);ctx.setTransform(dpr,0,0,dpr,0,0);}
   resize();new ResizeObserver(resize).observe(stage);
-  const img=document.createElement('video');
-  img.src='brain.mp4'; img.loop=true; img.muted=true; img.playsInline=true; img.autoplay=true;
-  img.preload='auto';
-  img.play().catch(()=>{});
-  function computeImg(){const iw=(img&&img.videoWidth)||1280,ih=(img&&img.videoHeight)||720;
+  // Two decoders of the same clip: near the end of A we start B from 0 and
+  // crossfade between them on the canvas, so the loop point never hard-cuts.
+  const mkVid=()=>{const v=document.createElement('video');
+    v.src='brain.mp4';v.muted=true;v.playsInline=true;v.preload='auto';return v;};
+  const vidA=mkVid(), vidB=mkVid();
+  let cur=vidA, nxt=vidB;
+  const FADE=0.7;
+  vidA.autoplay=true;
+  cur.play().catch(()=>{});
+  function swapVid(){const t=cur;cur=nxt;nxt=t;nxt.pause();try{nxt.currentTime=0;}catch(e){}
+    if(!state.selectedId)cur.play().catch(()=>{});}
+  vidA.addEventListener('ended',()=>{if(cur===vidA)swapVid();});
+  vidB.addEventListener('ended',()=>{if(cur===vidB)swapVid();});
+  function vidFade(){const d=cur.duration,t=cur.currentTime;
+    if(!d)return 0;const rem=d-t;if(rem>=FADE)return 0;
+    if(!state.selectedId&&nxt.paused){try{nxt.currentTime=0;}catch(e){}nxt.play().catch(()=>{});}
+    return Math.min(1,Math.max(0,1-rem/FADE));}
+  function vidPause(){cur.pause();nxt.pause();}
+  function vidPlay(){cur.play().catch(()=>{});
+    if(cur.duration&&cur.duration-cur.currentTime<FADE)nxt.play().catch(()=>{});}
+  function computeImg(){const iw=cur.videoWidth||960,ih=cur.videoHeight||540;
     const s=Math.max(W/iw,H/ih),dw=iw*s,dh=ih*s;imgT={ox:(W-dw)/2,oy:(H-dh)/2,dw,dh};}
   const photoToScreen=(nx,ny)=>({x:imgT.ox+nx*imgT.dw,y:imgT.oy+ny*imgT.dh});
 
   const CLUSTER_CENTER={};
   CAT_ORDER.forEach(k=>CLUSTER_CENTER[k]=CATS[k].lobe);
 
-  let dragId=null, dragging=false, hoverId=null, mx=0,my=0, rawMx=null, rawMy=null;
-  let px=0,py=0,tx=0,ty=0,t0=performance.now(),lastTm=0;
-  let tScaleX=1,tScaleY=1,tSkewX=0,tSkewY=0,cxI=0,cyI=0;
-  function tiltPt(x,y){const dx=x-cxI,dy=y-cyI;
-    return {x:cxI+dx*tScaleX+dy*tSkewX, y:cyI+dy*tScaleY+dx*tSkewY};}
+  let dragId=null, dragging=false, hoverId=null, mx=0,my=0;
+  let t0=performance.now(),lastTm=0;
   function nodeScreenPos(n){
-    const p=tiltPt(n.x*W,n.y*H), ph=phaseFor(n.id), wt=state.selectedId?0:1;
-    return {x:p.x+Math.sin(lastTm*ph.fx+ph.px)*ph.amp*wt, y:p.y+Math.cos(lastTm*ph.fy+ph.py)*ph.amp*wt};
+    const ph=phaseFor(n.id), wt=state.selectedId?0:1;
+    return {x:n.x*W+Math.sin(lastTm*ph.fx+ph.px)*ph.amp*wt, y:n.y*H+Math.cos(lastTm*ph.fy+ph.py)*ph.amp*wt};
   }
 
   function visible(n){return state.activeCats.has(n.t.cat)&&!n.t.done;}
@@ -294,21 +307,16 @@
   function draw(now){
     const tm=((now||performance.now())-t0)/1000;
     lastTm=tm;
-    if(rawMx===null&&!state.selectedId){
-      const dur=(img.duration||10.04), vphase=((img.currentTime||0)/dur)*6.2832;
-      tx=Math.sin(vphase)*0.45; ty=Math.cos(vphase*0.85)*0.28;
-    }
-    if(!state.selectedId){px+=(tx-px)*0.1; py+=(ty-py)*0.1;}
     ctx.clearRect(0,0,W,H);
     ctx.fillStyle='#03060f';ctx.fillRect(0,0,W,H);
     computeImg();
-    cxI=imgT.ox+imgT.dw/2; cyI=imgT.oy+imgT.dh/2;
-    tScaleX=1-Math.abs(px)*0.06; tScaleY=1-Math.abs(py)*0.07;
-    tSkewX=py*0.10; tSkewY=px*0.08;
-    ctx.save();
-    ctx.translate(cxI,cyI);ctx.transform(tScaleX,tSkewY,tSkewX,tScaleY,0,0);ctx.translate(-cxI,-cyI);
-    if(img.readyState>=2&&img.videoWidth){ctx.globalAlpha=0.62;ctx.drawImage(img,imgT.ox,imgT.oy,imgT.dw,imgT.dh);ctx.globalAlpha=1;}
-    ctx.restore();
+    if(cur.readyState>=2&&cur.videoWidth){ctx.globalAlpha=0.62;ctx.drawImage(cur,imgT.ox,imgT.oy,imgT.dw,imgT.dh);ctx.globalAlpha=1;}
+    const fa=vidFade();
+    if(fa>0&&nxt.readyState>=2&&nxt.videoWidth){
+      ctx.globalAlpha=0.62*fa;
+      ctx.drawImage(nxt,imgT.ox,imgT.oy,imgT.dw,imgT.dh);
+      ctx.globalAlpha=1;
+    }
     const pos=nodeScreenPos;
     // edges
     edges.forEach(e=>{
@@ -363,11 +371,10 @@
   }
   canvas.addEventListener('mousemove',e=>{
     const r=canvas.getBoundingClientRect();mx=e.clientX-r.left;my=e.clientY-r.top;
-    tx=(mx/W-0.5);ty=(my/H-0.5);rawMx=mx;rawMy=my;
     if(dragNode){dragNode.x=mx/W;dragNode.y=my/H;dragNode.vx=0;dragNode.vy=0;return;}
     const h=hit(mx,my);hoverId=h?h.id:null;canvas.style.cursor=h?'pointer':'default';
   });
-  canvas.addEventListener('mouseleave',()=>{rawMx=null;rawMy=null;hoverId=null;});
+  canvas.addEventListener('mouseleave',()=>{hoverId=null;});
   canvas.addEventListener('mousedown',e=>{
     const r=canvas.getBoundingClientRect();const px=e.clientX-r.left,py=e.clientY-r.top;
     const h=hit(px,py);if(h)dragNode=h;
@@ -376,10 +383,10 @@
   canvas.addEventListener('click',e=>{
     const r=canvas.getBoundingClientRect();const px=e.clientX-r.left,py=e.clientY-r.top;
     const h=hit(px,py);
-    if(h){state.selectedId=h.id;img.pause();renderCard();}
+    if(h){state.selectedId=h.id;vidPause();renderCard();}
     else deselect();
   });
-  function deselect(){if(state.selectedId===null)return;state.selectedId=null;img.play().catch(()=>{});renderCard();}
+  function deselect(){if(state.selectedId===null)return;state.selectedId=null;vidPlay();renderCard();}
 
   /* ---------- side panel ---------- */
   function renderLegend(){

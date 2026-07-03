@@ -35,6 +35,13 @@
   .nav a{padding:7px 13px;border-radius:8px;font-size:12.5px;font-weight:600;color:var(--ink-dim);text-decoration:none;transition:.2s;}
   .nav a:hover{color:#fff;}
   .nav a.on{background:linear-gradient(135deg,rgba(255,133,74,.24),rgba(255,90,34,.16));color:#fff;}
+  .nav .pop{padding:7px 11px;border-radius:8px;border:none;background:transparent;color:var(--ink-dim);
+    font-size:14px;line-height:1;cursor:pointer;transition:.2s;}
+  .nav .pop:hover{color:#fff;background:rgba(255,255,255,0.07);}
+  #toast{position:fixed;left:50%;bottom:26px;transform:translate(-50%,16px);z-index:30;opacity:0;
+    padding:11px 18px;border-radius:12px;background:rgba(10,16,32,0.96);border:1px solid rgba(255,255,255,0.14);
+    color:var(--ink);font-size:13.5px;pointer-events:none;transition:.3s;}
+  #toast.show{opacity:1;transform:translate(-50%,0);}
 
   .hint{position:absolute;left:18px;bottom:16px;display:flex;align-items:center;gap:8px;
     padding:7px 12px;border-radius:999px;background:rgba(6,12,26,0.5);backdrop-filter:blur(8px);
@@ -190,7 +197,7 @@
     <div class="brain" id="stage">
       <canvas id="cv"></canvas>
       <div class="title"><div class="k">Headroom</div><div class="h">What's on your mind</div></div>
-      <div class="nav"><a class="on" href="index.html">Brain dump</a><a href="dashboard.html">Overview</a><a href="connections.html">Connections</a></div>
+      <div class="nav"><a class="on" href="index.html">Brain dump</a><a href="dashboard.html">Overview</a><a href="connections.html">Connections</a><button class="pop" id="popBtn" title="Pop out a mini Headroom that stays on top while you work">⧉</button></div>
       <div class="hint"><span class="d"></span><span class="t">Click a neuron to read it · worries glow red-hot</span></div>
     </div>
 
@@ -294,6 +301,20 @@
       return th;});
   }
   function persist(){try{localStorage.setItem(LS,JSON.stringify(state.thoughts));}catch(e){}}
+  const LAST_DUMP='headroom_lastdump_v1';
+  function markDump(){try{localStorage.setItem(LAST_DUMP,String(Date.now()));}catch(e){}}
+  function lastDumpAt(){
+    let v=0;try{v=+localStorage.getItem(LAST_DUMP)||0;}catch(e){}
+    if(!v)v=state.thoughts.reduce((a,t)=>Math.max(a,t.t||0),0);
+    return v||Date.now();
+  }
+  function loadStats(){
+    const active=state.thoughts.filter(t=>!t.done);
+    const loadV=active.reduce((a,t)=>a+t.prio,0);
+    const loadPct=Math.min(loadV/22,1);
+    return {headroom:Math.round((1-loadPct)*100),loadPct,
+      thoughts:active.length,worries:active.filter(t=>t.cat==='worry').length};
+  }
   (function boot(){let t=null;try{const raw=localStorage.getItem(LS);if(raw)t=JSON.parse(raw);}catch(e){}
     state.thoughts=(t&&Array.isArray(t)&&t.length)?t:seed();})();
 
@@ -301,7 +322,7 @@
   const stage=$('#stage'), canvas=$('#cv'), ctx=canvas.getContext('2d');
   const dpr=Math.min(window.devicePixelRatio||1,2);
   let W=1,H=1, imgT={ox:0,oy:0,dw:1,dh:1}, brainOff={x:0,y:0};
-  let px=0,py=0,tx=0,ty=0, hovered=null, lastPos={}, t0=performance.now(), scene=null;
+  let hovered=null, lastPos={}, t0=performance.now(), scene=null;
   let rawMx=null, rawMy=null, ripples=[];
   const idHash=id=>{let h=0;for(let i=0;i<id.length;i++)h=(h*31+id.charCodeAt(i))>>>0;return h;};
   const idlePhase={};
@@ -312,10 +333,26 @@
     return idlePhase[id];
   }
 
-  const img=document.createElement('video');
-  img.src='brain.mp4'; img.loop=true; img.muted=true; img.playsInline=true; img.autoplay=true;
-  img.preload='auto';
-  img.play().catch(()=>{});
+  // Two decoders of the same clip: near the end of A we start B from 0 and
+  // crossfade between them on the canvas, so the loop point never hard-cuts.
+  const mkVid=()=>{const v=document.createElement('video');
+    v.src='brain.mp4';v.muted=true;v.playsInline=true;v.preload='auto';return v;};
+  const vidA=mkVid(), vidB=mkVid();
+  let cur=vidA, nxt=vidB;
+  const FADE=0.7;
+  vidA.autoplay=true;
+  cur.play().catch(()=>{});
+  function swapVid(){const t=cur;cur=nxt;nxt=t;nxt.pause();try{nxt.currentTime=0;}catch(e){}
+    if(!state.selectedId)cur.play().catch(()=>{});}
+  vidA.addEventListener('ended',()=>{if(cur===vidA)swapVid();});
+  vidB.addEventListener('ended',()=>{if(cur===vidB)swapVid();});
+  function vidFade(){const d=cur.duration,t=cur.currentTime;
+    if(!d)return 0;const rem=d-t;if(rem>=FADE)return 0;
+    if(!state.selectedId&&nxt.paused){try{nxt.currentTime=0;}catch(e){}nxt.play().catch(()=>{});}
+    return Math.min(1,Math.max(0,1-rem/FADE));}
+  function vidPause(){cur.pause();nxt.pause();}
+  function vidPlay(){cur.play().catch(()=>{});
+    if(cur.duration&&cur.duration-cur.currentTime<FADE)nxt.play().catch(()=>{});}
 
   function buildScene(){
     const d=DENSITY, bokeh=[];
@@ -337,7 +374,7 @@
   }
   function resize(){const w=stage.clientWidth||1,h=stage.clientHeight||1;W=w;H=h;
     canvas.width=Math.round(w*dpr);canvas.height=Math.round(h*dpr);ctx.setTransform(dpr,0,0,dpr,0,0);}
-  function computeImg(){const iw=(img&&img.videoWidth)||1280,ih=(img&&img.videoHeight)||720;
+  function computeImg(){const iw=cur.videoWidth||960,ih=cur.videoHeight||540;
     const s=Math.max(W/iw,H/ih),dw=iw*s,dh=ih*s;imgT={ox:(W-dw)/2,oy:(H-dh)/2,dw,dh};}
   const photoToScreen=(nx,ny)=>({x:imgT.ox+nx*imgT.dw,y:imgT.oy+ny*imgT.dh});
   const neuronScreen=th=>{const p=photoToScreen(th.x,th.y);return {x:p.x+brainOff.x,y:p.y+brainOff.y};};
@@ -348,35 +385,25 @@
   function loop(now){
     const tm=(now-t0)/1000, minD=Math.min(W,H), sc=scene;
     if(!sc){requestAnimationFrame(loop);return;}
-    if(rawMx===null&&!state.selectedId){
-      // tie the idle sway to the video's own clock (it loops, so sin() returns to 0
-      // right at the loop point — no jump) so the overlay visibly moves *with* it
-      // instead of drifting on its own separate, much slower rhythm
-      const dur=(img.duration||10.04), vphase=((img.currentTime||0)/dur)*6.2832;
-      tx=Math.sin(vphase)*0.55; ty=Math.cos(vphase*0.85)*0.34;
-    }
-    if(!state.selectedId){px+=(tx-px)*0.1; py+=(ty-py)*0.1;}
     ctx.clearRect(0,0,W,H);
     computeImg();
     ctx.globalCompositeOperation='source-over';
     ctx.fillStyle='#03060f';ctx.fillRect(0,0,W,H);
     const bob=state.selectedId?0:Math.sin(tm*0.4)*4;
-    brainOff={x:-px*22,y:-py*16+bob};
-    const cxI=imgT.ox+imgT.dw/2+brainOff.x, cyI=imgT.oy+imgT.dh/2+brainOff.y;
-    const tScaleX=1-Math.abs(px)*0.07, tScaleY=1-Math.abs(py)*0.08;
-    const tSkewX=py*0.12, tSkewY=px*0.09;
-    const tiltPoint=(x,y)=>{const dx=x-cxI,dy=y-cyI;
-      return {x:cxI+dx*tScaleX+dy*tSkewX, y:cyI+dy*tScaleY+dx*tSkewY};};
-    ctx.save();
-    ctx.translate(cxI,cyI);ctx.transform(tScaleX,tSkewY,tSkewX,tScaleY,0,0);ctx.translate(-cxI,-cyI);
-    if(img&&img.readyState>=2&&img.videoWidth)
-      ctx.drawImage(img,imgT.ox+brainOff.x,imgT.oy+brainOff.y,imgT.dw,imgT.dh);
-    ctx.restore();
+    brainOff={x:0,y:bob};
+    const cxI=imgT.ox+imgT.dw/2, cyI=imgT.oy+imgT.dh/2+bob;
+    if(cur.readyState>=2&&cur.videoWidth)
+      ctx.drawImage(cur,imgT.ox,imgT.oy+bob,imgT.dw,imgT.dh);
+    const fa=vidFade();
+    if(fa>0&&nxt.readyState>=2&&nxt.videoWidth){
+      ctx.globalAlpha=fa;
+      ctx.drawImage(nxt,imgT.ox,imgT.oy+bob,imgT.dw,imgT.dh);
+      ctx.globalAlpha=1;
+    }
     ctx.globalCompositeOperation='overlay';
-    const shX=cxI-px*minD*0.55, shY=cyI-py*minD*0.45;
-    const sheen=ctx.createRadialGradient(shX,shY,0,shX,shY,minD*0.4);
+    const sheen=ctx.createRadialGradient(cxI,cyI,0,cxI,cyI,minD*0.4);
     sheen.addColorStop(0,'rgba(255,250,240,0.14)');sheen.addColorStop(1,'rgba(255,250,240,0)');
-    ctx.fillStyle=sheen;ctx.beginPath();ctx.arc(shX,shY,minD*0.4,0,6.2832);ctx.fill();
+    ctx.fillStyle=sheen;ctx.beginPath();ctx.arc(cxI,cyI,minD*0.4,0,6.2832);ctx.fill();
     ctx.globalCompositeOperation='source-over';
 
     const ths=state.thoughts, active=ths.filter(t=>!t.done);
@@ -389,7 +416,7 @@
     const calm=c=>({r:NEUTRAL.r+(c.r-NEUTRAL.r)*calmT,g:NEUTRAL.g+(c.g-NEUTRAL.g)*calmT,b:NEUTRAL.b+(c.b-NEUTRAL.b)*calmT});
     const hot=computeHot();
     if(hot.hotCat){
-      const l=CATS[hot.hotCat].lobe, c0=photoToScreen(l.x,l.y), cp=tiltPoint(c0.x+brainOff.x,c0.y+brainOff.y), cx=cp.x, cy=cp.y;
+      const l=CATS[hot.hotCat].lobe, c0=photoToScreen(l.x,l.y), cx=c0.x+brainOff.x, cy=c0.y+brainOff.y;
       const hc=hexRgb(CATS[hot.hotCat].hex);
       const pulse=0.65+0.35*Math.sin(tm*1.8);
       const rr=minD*(0.16+0.02*pulse);
@@ -404,7 +431,7 @@
 
     ctx.globalCompositeOperation='lighter';
     if(loadV>0){
-      const c0=photoToScreen(0.515,0.5),cp=tiltPoint(c0.x+brainOff.x,c0.y+brainOff.y),cx=cp.x,cy=cp.y;
+      const c0=photoToScreen(0.515,0.5),cx=c0.x+brainOff.x,cy=c0.y+brainOff.y;
       const auraFull={r:255,g:Math.round(122-wr*60),b:Math.round(47-wr*30)};
       const aura=calm(auraFull);
       const pulse=0.7+0.3*Math.sin(tm*(1.4+wr*1.6));
@@ -415,13 +442,13 @@
     }
     for(const b of sc.bokeh){
       const tw=0.6+0.4*Math.sin(tm*b.tw+b.ph);
-      const bx=(((b.x+b.vx*tm)%1+1)%1)*W-px*50*b.depth, by=(((b.y+b.vy*tm)%1+1)%1)*H-py*38*b.depth;
+      const bx=(((b.x+b.vx*tm)%1+1)%1)*W, by=(((b.y+b.vy*tm)%1+1)%1)*H;
       const rr=b.r*minD*(0.85+0.15*tw);
       const g=ctx.createRadialGradient(bx,by,0,bx,by,rr);
       g.addColorStop(0,rgba(b.col,0.4*tw*b.depth));g.addColorStop(0.45,rgba(b.col,0.11*tw*b.depth));g.addColorStop(1,rgba(b.col,0));
       ctx.fillStyle=g;ctx.beginPath();ctx.arc(bx,by,rr,0,6.2832);ctx.fill();
     }
-    const np=n=>({x:n.x*W-px*60*n.depth,y:n.y*H-py*46*n.depth});
+    const np=n=>({x:n.x*W,y:n.y*H});
     ctx.lineWidth=1;
     for(const e of sc.edges){const a=np(sc.nodes[e.a]),b=np(sc.nodes[e.b]);
       ctx.strokeStyle=rgba(ACCENT,0.09);ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();}
@@ -434,12 +461,12 @@
     }
     for(const st of sc.stars){
       const tw=0.4+0.6*Math.abs(Math.sin(tm*st.tw+st.ph));
-      const sx=st.x*W-px*90*st.depth,sy=st.y*H-py*70*st.depth;
+      const sx=st.x*W,sy=st.y*H;
       ctx.fillStyle=rgba(st.col,0.85*tw);ctx.beginPath();ctx.arc(sx,sy,st.r,0,6.2832);ctx.fill();
     }
     const hov=hovered, selId=state.selectedId;
     for(const th of ths){
-      const base0=neuronScreen(th), base=tiltPoint(base0.x,base0.y);
+      const base=neuronScreen(th);
       const ph=phaseFor(th.id), wt=selId?0:1;
       let px2=base.x+Math.sin(tm*ph.fx+ph.px)*ph.amp*wt, py2=base.y+Math.cos(tm*ph.fy+ph.py)*ph.amp*wt;
       let prox=0;
@@ -496,13 +523,13 @@
   /* ---------- pointer ---------- */
   canvas.addEventListener('mousemove',e=>{
     const r=canvas.getBoundingClientRect(),mx=e.clientX-r.left,my=e.clientY-r.top;
-    tx=(mx/W-0.5);ty=(my/H-0.5);rawMx=mx;rawMy=my;
+    rawMx=mx;rawMy=my;
     let hit=null;
     for(const th of state.thoughts){const p=lastPos[th.id];if(!p)continue;
       if((mx-p.x)**2+(my-p.y)**2<20*20){hit=th.id;break;}}
     hovered=hit;canvas.style.cursor=hit?'pointer':'default';
   });
-  canvas.addEventListener('mouseleave',()=>{tx=0;ty=0;hovered=null;rawMx=null;rawMy=null;canvas.style.cursor='default';});
+  canvas.addEventListener('mouseleave',()=>{hovered=null;rawMx=null;rawMy=null;canvas.style.cursor='default';});
   canvas.addEventListener('click',e=>{
     const r=canvas.getBoundingClientRect(),mx=e.clientX-r.left,my=e.clientY-r.top;
     for(const th of state.thoughts){const p=lastPos[th.id];if(!p)continue;
@@ -518,7 +545,11 @@
     const p=pos(state.cat,rnd(-0.06,0.06),rnd(-0.05,0.05));
     const due=(state.cat==='goal'&&$('#dueInput').value)?$('#dueInput').value:null;
     state.thoughts.push({id:newId(),text,cat:state.cat,prio:state.prio,size:state.size,done:false,x:p.x,y:p.y,t:Date.now(),due,mood:{joy:0,stress:0,excitement:0}});
-    state.draft='';$('#draft').value='';$('#dueInput').value='';persist();renderAll();}
+    state.draft='';$('#draft').value='';$('#dueInput').value='';markDump();persist();renderAll();}
+  function quickAdd(text,cat){text=(text||'').trim();if(!text)return false;
+    const p=pos(cat,rnd(-0.06,0.06),rnd(-0.05,0.05));
+    state.thoughts.push({id:newId(),text,cat,prio:2,size:'m',done:false,x:p.x,y:p.y,t:Date.now(),due:null,mood:{joy:0,stress:0,excitement:0}});
+    markDump();persist();renderAll();return true;}
   function setMood(id,key,val){const th=state.thoughts.find(t=>t.id===id);if(!th)return;
     if(!th.mood)th.mood={joy:0,stress:0,excitement:0};
     th.mood[key]=th.mood[key]===val?0:val;persist();renderCard();}
@@ -529,8 +560,8 @@
   function deleteThought(id){state.thoughts=state.thoughts.filter(t=>t.id!==id);
     if(state.selectedId===id)state.selectedId=null;persist();renderAll();}
   function editText(id,text){const th=state.thoughts.find(t=>t.id===id);if(th){th.text=text;th.ai=null;persist();renderList();}}
-  function select(id){state.selectedId=id;img.pause();renderCard();renderList();}
-  function deselect(){if(state.selectedId===null)return;state.selectedId=null;img.play().catch(()=>{});renderCard();renderList();}
+  function select(id){state.selectedId=id;vidPause();renderCard();renderList();}
+  function deselect(){if(state.selectedId===null)return;state.selectedId=null;vidPlay();renderCard();renderList();}
 
   async function clearThought(th){
     const card=$('#stage .card');if(!card)return;
@@ -642,6 +673,9 @@
     $('#activeCount').textContent=active.length;
     $('#loadLabel').textContent=loadLabel;
     const bar=$('#loadBar');bar.style.width=(loadPct*100)+'%';bar.style.background=loadHex;bar.style.boxShadow='0 0 10px '+loadHex;
+    const s=loadStats();
+    document.title='Headroom — '+s.headroom+'% headroom · '+s.thoughts+' thoughts';
+    updatePill();
     renderTips();
   }
   function renderList(){
@@ -743,7 +777,82 @@
   }
   function renderAll(){paintControls();renderHead();renderList();renderCard();}
 
+  /* ---------- companion pill (pop-out mini view) ---------- */
+  let pipWin=null, pillCat='todo';
+  function toast(msg){let el=$('#toast');if(!el){el=document.createElement('div');el.id='toast';document.body.appendChild(el);}
+    el.textContent=msg;el.classList.add('show');clearTimeout(toast._t);toast._t=setTimeout(()=>el.classList.remove('show'),3400);}
+  const fmtSince=ms=>{const s=Math.max(0,Math.floor(ms/1000)),h=Math.floor(s/3600),m=Math.floor((s%3600)/60),ss=s%60;
+    return h?h+':'+String(m).padStart(2,'0')+':'+String(ss).padStart(2,'0'):m+':'+String(ss).padStart(2,'0');};
+  function updatePill(){
+    if(!pipWin)return;
+    const d=pipWin.document, s=loadStats();
+    const since=d.getElementById('pSince'), head=d.getElementById('pHead'), cnt=d.getElementById('pCnt');
+    if(!since)return;
+    since.textContent=fmtSince(Date.now()-lastDumpAt());
+    head.textContent=s.headroom+'%';
+    head.style.color=s.loadPct>0.65?'#ff5a3c':s.loadPct>0.4?'#ff9a3c':'#7fe0a0';
+    cnt.textContent=s.thoughts+' · '+s.worries;
+  }
+  function paintPillDots(){
+    if(!pipWin)return;
+    pipWin.document.querySelectorAll('.pd').forEach(b=>{
+      const on=b.dataset.k===pillCat;
+      b.style.boxShadow=on?'0 0 0 2px rgba(255,255,255,0.85), 0 0 10px '+CATS[b.dataset.k].hex:'none';
+      b.style.opacity=on?'1':'0.55';
+    });
+  }
+  async function openPill(){
+    if(pipWin&&!pipWin.closed){try{pipWin.focus();}catch(e){}return;}
+    pipWin=null;
+    if(!('documentPictureInPicture' in window)){
+      toast('The pop-out needs Chrome or Edge — but this tab\'s title shows your live headroom.');return;}
+    let w;
+    try{w=await documentPictureInPicture.requestWindow({width:390,height:150});}
+    catch(e){toast('Couldn\'t open the pop-out window.');return;}
+    pipWin=w; pillCat=state.cat;
+    const d=w.document;
+    d.title='Headroom';
+    document.querySelectorAll('link[rel="stylesheet"],link[rel="preconnect"]').forEach(l=>d.head.appendChild(l.cloneNode(true)));
+    const st=d.createElement('style');
+    st.textContent=
+      "body{margin:0;background:#060b18;color:#e8eeff;font-family:'Hanken Grotesk',ui-sans-serif,system-ui,sans-serif;"+
+        "display:flex;flex-direction:column;justify-content:center;gap:10px;padding:12px 16px;height:100vh;box-sizing:border-box;}"+
+      ".stats{display:flex;align-items:center;gap:13px;}"+
+      ".st{flex:1;min-width:0;}"+
+      ".v{font-family:'Space Mono',ui-monospace,monospace;font-size:20px;font-weight:700;color:#ffd2a0;white-space:nowrap;}"+
+      ".l{font-size:8.5px;letter-spacing:1.1px;color:rgba(214,226,248,0.45);margin-top:2px;text-transform:uppercase;white-space:nowrap;}"+
+      ".sep{width:1px;height:26px;background:rgba(255,255,255,0.12);flex:none;}"+
+      ".cap{display:flex;align-items:center;gap:8px;}"+
+      ".dots{display:flex;gap:5px;flex:none;}"+
+      ".pd{width:14px;height:14px;border-radius:50%;border:none;cursor:pointer;padding:0;transition:.15s;}"+
+      "input{flex:1;min-width:0;border:1px solid rgba(255,255,255,0.14);background:rgba(0,0,0,0.3);border-radius:8px;"+
+        "color:#fff;font-size:13px;padding:8px 10px;outline:none;font-family:inherit;}"+
+      "input:focus{border-color:rgba(255,170,110,0.5);}"+
+      "::placeholder{color:rgba(214,226,248,0.35);}";
+    d.head.appendChild(st);
+    d.body.innerHTML=
+      '<div class="stats">'+
+        '<div class="st"><div class="v" id="pSince">0:00</div><div class="l">Since last dump</div></div>'+
+        '<div class="sep"></div>'+
+        '<div class="st"><div class="v" id="pHead">—</div><div class="l">Headroom</div></div>'+
+        '<div class="sep"></div>'+
+        '<div class="st"><div class="v" id="pCnt" style="color:#e8eeff">—</div><div class="l">Thoughts · Worries</div></div>'+
+      '</div>'+
+      '<div class="cap"><div class="dots">'+
+        CAT_ORDER.map(k=>'<button class="pd" data-k="'+k+'" title="'+CATS[k].label+'" style="background:'+CATS[k].hex+'"></button>').join('')+
+      '</div><input id="pIn" placeholder="Dump a thought…" autocomplete="off"/></div>';
+    d.querySelectorAll('.pd').forEach(b=>{b.onclick=()=>{pillCat=b.dataset.k;paintPillDots();};});
+    const inp=d.getElementById('pIn');
+    inp.addEventListener('keydown',e=>{
+      if(e.key==='Enter'&&quickAdd(inp.value,pillCat)){inp.value='';updatePill();}
+    });
+    const iv=w.setInterval(updatePill,1000);
+    w.addEventListener('pagehide',()=>{w.clearInterval(iv);pipWin=null;});
+    paintPillDots();updatePill();
+  }
+
   /* ---------- wire ---------- */
+  $('#popBtn').addEventListener('click',openPill);
   $('#draft').addEventListener('input',e=>{state.draft=e.target.value;});
   $('#draft').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();addThought();}});
   $('#addBtn').addEventListener('click',addThought);
