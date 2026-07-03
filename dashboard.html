@@ -174,8 +174,33 @@
   .track .pct{font-family:var(--serif);font-size:24px;font-weight:500;min-width:58px;text-align:right}
   .track .msg{font-size:14px;color:var(--ink-dim);min-width:200px}
 
+  /* greeting + glance + ask */
+  .greet{grid-column:span 12;padding:6px 4px 0;}
+  .greet .gh{font-family:var(--serif);font-size:34px;font-weight:500;letter-spacing:-.4px;}
+  .greet .gh em{font-style:italic;color:var(--ember-1);}
+  .greet .gs{margin-top:5px;font-size:14.5px;color:var(--ink-dim);}
+  .glance{grid-column:span 4;display:flex;flex-direction:column;gap:4px;padding:18px 22px;}
+  .glance .gv{font-family:var(--serif);font-size:30px;font-weight:500;}
+  .glance .gl{font-family:var(--mono);font-size:10.5px;letter-spacing:1.4px;text-transform:uppercase;color:var(--ink-faint);}
+  .glance .gn{font-size:12.5px;color:var(--ink-dim);margin-top:2px;line-height:1.45;}
+  .ask{grid-column:span 12;}
+  .askrow{display:flex;gap:10px;margin-top:4px;}
+  .askrow input{flex:1;background:rgba(255,255,255,.05);border:1px solid var(--line);border-radius:12px;
+    padding:14px 16px;color:var(--ink);font-family:var(--sans);font-size:15.5px;outline:none;}
+  .askrow input:focus{border-color:rgba(255,170,110,.45);}
+  .askrow button{border:none;cursor:pointer;font-weight:700;font-size:14.5px;color:#3a1c08;border-radius:12px;
+    padding:0 26px;background:linear-gradient(135deg,var(--ember-1),var(--ember-2));box-shadow:0 0 22px rgba(255,120,45,.3);}
+  .askchips{display:flex;gap:8px;flex-wrap:wrap;margin-top:12px;}
+  .askchips button{cursor:pointer;font-size:12.5px;font-weight:600;color:var(--ink-dim);padding:8px 13px;
+    border-radius:9px;border:1px solid var(--line);background:rgba(255,255,255,.03);transition:.2s;}
+  .askchips button:hover{color:var(--ink);border-color:rgba(255,170,110,.4);}
+  .askans{margin-top:14px;font-family:var(--serif);font-style:italic;font-size:16.5px;line-height:1.55;color:var(--ink);
+    border-top:1px solid var(--line);padding-top:14px;display:none;}
+  .askans .src{display:block;font-family:var(--mono);font-style:normal;font-size:10.5px;letter-spacing:1.2px;
+    text-transform:uppercase;color:var(--ink-faint);margin-top:8px;}
+
   @media(max-width:1100px){
-    .hero,.activity,.timespend,.urgent,.todos,.habits{grid-column:span 12;grid-row:auto}
+    .hero,.activity,.timespend,.urgent,.todos,.habits,.glance,.ask{grid-column:span 12;grid-row:auto}
   }
 </style>
 </head>
@@ -196,6 +221,29 @@
   </div>
 
   <div class="board">
+    <!-- GREETING -->
+    <div class="greet">
+      <div class="gh" id="greetH">Morning, <em>John</em>.</div>
+      <div class="gs">Here's what's on your mind today.</div>
+    </div>
+
+    <!-- GLANCE -->
+    <section class="card glance"><span class="gl">Headroom now</span><span class="gv" id="gHead">—</span><span class="gn" id="gHeadN"></span></section>
+    <section class="card glance"><span class="gl">Cleared yesterday</span><span class="gv" id="gYest">—</span><span class="gn" id="gYestN"></span></section>
+    <section class="card glance"><span class="gl">Since last dump</span><span class="gv" id="gDump">—</span><span class="gn" id="gDumpN"></span></section>
+
+    <!-- ASK -->
+    <section class="card ask">
+      <h2>Ask Headroom</h2>
+      <div class="sub">Anything about what's on your plate — it can see your whole list</div>
+      <div class="askrow">
+        <input id="askIn" placeholder="Ask anything — e.g. what should I tackle first?" maxlength="200"/>
+        <button id="askGo">Ask</button>
+      </div>
+      <div class="askchips" id="askChips"></div>
+      <div class="askans" id="askAns"></div>
+    </section>
+
     <!-- HERO -->
     <section class="card hero">
       <h2>State of mind <span class="chip" id="loadChip">—</span></h2>
@@ -212,14 +260,13 @@
       </div>
     </section>
 
-    <!-- ACTIVITY -->
+    <!-- TRENDS -->
     <section class="card activity">
-      <h2>Activity &amp; Focus <span class="chip">Today</span></h2>
-      <div class="sub">How your attention has moved through the day</div>
+      <h2>Headroom over time <span class="chip">Last 14 days</span></h2>
+      <div class="sub">Computed headroom per day — dots show how your head actually felt</div>
       <div class="legend">
-        <span><i style="background:var(--amber)"></i>Focus</span>
-        <span><i style="background:var(--blue)"></i>Energy</span>
-        <span><i style="background:var(--violet)"></i>Calm</span>
+        <span><i style="background:var(--amber)"></i>Headroom %</span>
+        <span><i style="background:var(--cyan)"></i>Felt (after a reset)</span>
       </div>
       <svg class="chart" id="chart" viewBox="0 0 720 170" preserveAspectRatio="none"></svg>
       <div class="xax" id="xax"></div>
@@ -326,8 +373,10 @@
   function saveThoughts(){localStorage.setItem(THOUGHTS_KEY,JSON.stringify(state.thoughts));}
   function saveHabits(){localStorage.setItem(HABITS_KEY,JSON.stringify(state.habits));}
   // live sync if the brain visualizer changes things in another tab
+  const HIST_KEY="headroom_history_v1", DUMP_KEY="headroom_lastdump_v1";
   addEventListener("storage",e=>{if(e.key===THOUGHTS_KEY){state.thoughts=loadThoughts();renderAll();}
-    else if(e.key===HABITS_KEY){state.habits=loadHabits();renderAll();}});
+    else if(e.key===HABITS_KEY){state.habits=loadHabits();renderAll();}
+    else if(e.key===HIST_KEY||e.key===DUMP_KEY){renderAll();}});
 
   const isUrgent=t=>t.cat==="worry"||t.prio>=3;
 
@@ -399,27 +448,82 @@
       pct>=25?"Good start. One more small win lifts this.":
       "Fresh slate. Pick one thing and begin.";
   }
-  function renderAll(){renderTodos();renderUrgent();renderHabits();renderBrain();renderScore();}
+  function renderAll(){renderTodos();renderUrgent();renderHabits();renderBrain();renderScore();renderGlance();renderTrends();}
 
-  /* ---------- activity chart ---------- */
+  /* ---------- greeting ---------- */
+  (function greet(){
+    const h=new Date().getHours();
+    $("#greetH").innerHTML=(h<12?"Morning":h<18?"Afternoon":"Evening")+", <em>John</em>.";
+  })();
+
+  /* ---------- glance cards ---------- */
+  function readHist(){try{const h=JSON.parse(localStorage.getItem(HIST_KEY));return Array.isArray(h)?h:[];}catch(e){return [];}}
+  function dkey(d){return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");}
+  function renderGlance(){
+    const active=state.thoughts.filter(t=>!t.done);
+    const loadV=active.reduce((a,t)=>a+(t.prio||2),0);
+    const head=Math.round((1-Math.min(loadV/22,1))*100);
+    $("#gHead").textContent=head+"%";
+    $("#gHead").style.color=head<35?"#ff6a2a":head<60?"var(--amber)":"var(--green)";
+    $("#gHeadN").textContent=active.length+" open thoughts · "+active.filter(t=>t.cat==="worry").length+" worries";
+    const hist=readHist();
+    const y=new Date();y.setDate(y.getDate()-1);
+    const ye=hist.find(e=>e.date===dkey(y));
+    if(ye){$("#gYest").textContent=ye.done;
+      $("#gYestN").textContent=ye.done>0?"set down and done — that's real headroom back":"a quiet day — nothing ticked off";}
+    else{$("#gYest").textContent="—";$("#gYestN").textContent="history starts today — check back tomorrow";}
+    let dv=0;try{dv=+localStorage.getItem(DUMP_KEY)||0;}catch(e){}
+    if(dv){const m=Math.floor((Date.now()-dv)/60000);
+      $("#gDump").textContent=m<60?m+"m":Math.floor(m/60)+"h "+(m%60)+"m";
+      $("#gDumpN").textContent=m>=45?"been a while — anything circling up there?":"nice and recent";}
+    else{$("#gDump").textContent="—";$("#gDumpN").textContent="dump something on the Brain dump page";}
+  }
+
+  /* ---------- headroom trends (real history) ---------- */
   function smooth(vals,w,h,pad){const n=vals.length,step=w/(n-1);
     const pts=vals.map((v,i)=>[i*step,h-pad-v*(h-pad*2)]);
     let d="M"+pts[0][0].toFixed(1)+" "+pts[0][1].toFixed(1);
     for(let i=0;i<n-1;i++){const p=pts[i],q=pts[i+1],mx=(p[0]+q[0])/2;d+=" C"+mx.toFixed(1)+" "+p[1].toFixed(1)+" "+mx.toFixed(1)+" "+q[1].toFixed(1)+" "+q[0].toFixed(1)+" "+q[1].toFixed(1);}
     return d;}
-  function gen(seed,base,amp,n){const a=[];let v=base;for(let i=0;i<n;i++){v+=(Math.sin(i*seed)+Math.cos(i*seed*1.7))*amp*0.5+(Math.random()-.5)*amp*0.4;
-    v=Math.max(0.08,Math.min(0.95,v*0.8+base*0.2));a.push(v);}return a;}
-  (function chart(){
-    const n=25,w=720,h=170;
-    const series=[["var(--amber)",gen(0.7,0.55,0.18,n)],["var(--blue)",gen(0.45,0.62,0.12,n)],["var(--violet)",gen(0.3,0.35,0.1,n)]];
-    let svg="";
-    series.forEach(([c,v],idx)=>{const d=smooth(v,w,h,14);
-      svg+='<path d="'+d+' L'+w+' '+h+' L0 '+h+' Z" fill="'+c+'" opacity="0.06"/>';
-      svg+='<path d="'+d+'" fill="none" stroke="'+c+'" stroke-width="2" stroke-linecap="round" opacity="'+(0.9-idx*0.12)+'"/>';});
+  function renderTrends(){
+    const hist=readHist().slice(-14), w=720, h=170, pad=14;
+    if(hist.length<2){
+      $("#chart").innerHTML='<text x="360" y="92" text-anchor="middle" fill="rgba(159,176,210,0.55)" font-size="13">Day one of your history — the line starts tomorrow.</text>';
+      $("#xax").innerHTML="";return;
+    }
+    const vals=hist.map(e=>Math.max(0,Math.min(1,(e.headroom||0)/100)));
+    const d=smooth(vals,w,h,pad);
+    let svg='<path d="'+d+' L'+w+' '+h+' L0 '+h+' Z" fill="var(--amber)" opacity="0.07"/>'+
+      '<path d="'+d+'" fill="none" stroke="var(--amber)" stroke-width="2" stroke-linecap="round"/>';
+    const step=w/(hist.length-1);
+    hist.forEach((e,i)=>{
+      if(e.felt==null)return;
+      const fv=1-(e.felt-1)/9;                       // felt 1 (clear) -> 1.0, felt 10 (very full) -> 0
+      const cy=h-pad-fv*(h-pad*2);
+      svg+='<circle cx="'+(i*step).toFixed(1)+'" cy="'+cy.toFixed(1)+'" r="4" fill="var(--cyan)" opacity="0.9"/>';
+    });
     $("#chart").innerHTML=svg;
-    const labs=["12AM","3AM","6AM","9AM","12PM","3PM","6PM","9PM"];
-    $("#xax").innerHTML=labs.map(l=>"<span>"+l+"</span>").join("");
-  })();
+    $("#xax").innerHTML=hist.map(e=>{const d2=new Date(e.date+"T00:00:00");
+      return "<span>"+d2.toLocaleDateString(undefined,{day:"numeric",month:"short"})+"</span>";}).join("");
+  }
+
+  /* ---------- ask headroom ---------- */
+  const ASK_CHIPS=["What should I set down first?","Summarize my load","What can wait until next week?","Anything I'm overthinking?"];
+  $("#askChips").innerHTML=ASK_CHIPS.map(c=>"<button>"+c+"</button>").join("");
+  $$("#askChips button").forEach(b=>b.onclick=()=>{$("#askIn").value=b.textContent;doAsk();});
+  async function doAsk(){
+    const q=$("#askIn").value.trim();if(!q)return;
+    const box=$("#askAns");box.style.display="block";
+    box.innerHTML='<div class="skel" style="width:88%"></div><div class="skel" style="width:64%"></div>';
+    try{
+      const r=await fetch("/api/ask",{method:"POST",headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({question:q,thoughts:state.thoughts})});
+      const d=await r.json();
+      box.innerHTML=esc(d.answer||"")+'<span class="src">Headroom · '+(d.source==="mock"?"offline":"live")+'</span>';
+    }catch(e){box.innerHTML="Couldn't reach Headroom — is the server running?";}
+  }
+  $("#askGo").onclick=doAsk;
+  $("#askIn").addEventListener("keydown",e=>{if(e.key==="Enter")doAsk();});
 
   /* ---------- time spend ---------- */
   (function timespend(){
