@@ -131,13 +131,14 @@
   .phead .top .t{font-size:16px;font-weight:650;color:#fff;}
   .phead .top .c{font-size:13px;color:rgba(214,226,248,0.5);}
   .load{margin-top:12px;}
-  .load .lr{display:flex;justify-content:space-between;font-size:12.5px;color:rgba(214,226,248,0.55);margin-bottom:6px;}
+  .load .lr{display:flex;justify-content:space-between;font-family:var(--mono);font-size:10.5px;
+    letter-spacing:1.4px;text-transform:uppercase;color:rgba(214,226,248,0.45);margin-bottom:7px;}
   .load .bar{height:7px;border-radius:99px;background:rgba(255,255,255,0.07);overflow:hidden;}
   .load .bar i{display:block;height:100%;border-radius:99px;transition:width .4s ease,background .4s ease;}
-  .planbtn{border:1px solid rgba(255,170,110,.3);background:rgba(255,133,74,.1);color:var(--ember-1);}
-  .planbtn:hover{background:rgba(255,133,74,.18);}
-  .tipsbox{margin-top:12px;padding:12px 14px;border-radius:12px;background:rgba(255,150,70,.07);
-    border:1px solid rgba(255,150,70,.18);}
+  .planbtn{border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.02);color:rgba(255,210,160,0.85);}
+  .planbtn:hover{background:rgba(255,133,74,.1);border-color:rgba(255,170,110,.3);color:var(--ember-1);}
+  .tipsbox{margin-top:12px;padding:12px 14px;border-radius:12px;background:rgba(255,150,70,.05);
+    border:1px solid rgba(255,150,70,.11);}
   .tipsbox .tk{font-size:12.5px;font-weight:650;margin-bottom:7px;}
   .tipsbox .ti{font-size:13px;line-height:1.5;color:var(--ink-dim);margin-top:6px;padding-top:6px;
     border-top:1px solid rgba(255,255,255,0.06);}
@@ -151,7 +152,9 @@
   .prow{display:flex;align-items:center;gap:8px;margin-top:10px;flex-wrap:wrap;}
   .prow .pl{font-size:13px;color:rgba(214,226,248,0.5);}
   .seg{padding:10px 15px;border-radius:9px;font-size:14px;font-weight:600;cursor:pointer;white-space:nowrap;
-    border:1px solid rgba(255,255,255,0.12);background:rgba(255,255,255,0.03);color:rgba(214,226,248,0.6);transition:.15s;}
+    border:1px solid rgba(255,255,255,0.09);background:rgba(255,255,255,0.02);color:rgba(214,226,248,0.55);transition:.15s;}
+  .kick{font-family:var(--mono);font-size:10px;letter-spacing:1.7px;text-transform:uppercase;
+    color:rgba(214,226,248,0.38);margin-bottom:11px;}
   #dueInput{border:1px solid rgba(255,255,255,0.12);background:rgba(0,0,0,0.25);border-radius:8px;
     color:#fff;font-size:14px;padding:7px 10px;outline:none;color-scheme:dark;}
   .morebtn{background:none;border:none;color:rgba(214,226,248,0.5);font-size:13.5px;font-weight:600;
@@ -161,22 +164,26 @@
     background:linear-gradient(135deg,var(--ember-1),var(--ember-2));color:#3a1c08;font-size:15.5px;font-weight:700;cursor:pointer;
     box-shadow:0 6px 18px var(--ember-glow);}
   .duo{display:flex;gap:8px;margin-top:14px;}
-  .duo button{flex:1;padding:12px 8px;border-radius:10px;cursor:pointer;font-weight:650;font-size:13.5px;transition:.2s;}
-  .sweepbtn{border:1px solid rgba(91,157,255,.35);background:rgba(91,157,255,.1);color:#8fbcff;}
-  .sweepbtn:hover{background:rgba(91,157,255,.18);}
+  .duo button{flex:1;padding:12px 8px;border-radius:10px;cursor:pointer;font-weight:600;font-size:13px;transition:.2s;}
+  .sweepbtn{border:1px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.02);color:rgba(143,188,255,0.85);}
+  .sweepbtn:hover{background:rgba(91,157,255,.1);border-color:rgba(91,157,255,.3);color:#8fbcff;}
 
-  .filters{display:flex;gap:6px;padding:14px 20px 10px;flex-wrap:wrap;}
-  .filters .seg{display:inline-flex;align-items:center;padding:7px 11px;}
-  .filters .seg .n{margin-left:6px;font-size:11.5px;opacity:.7;font-weight:700;}
+  .lsec{padding:14px 20px 0;}
+  .filters{display:flex;gap:5px;padding:0 20px 8px;flex-wrap:wrap;}
+  .filters .seg{display:inline-flex;align-items:center;padding:6px 10px;font-size:12px;}
+  .filters .seg .n{margin-left:6px;font-size:11px;opacity:.7;font-weight:700;}
 
-  .list{flex:1 1 auto;overflow-y:auto;padding:4px 12px 16px;min-height:0;}
-  .item{display:flex;align-items:center;gap:10px;padding:11px 10px;border-radius:10px;cursor:pointer;margin-top:4px;
+  .list{flex:1 1 auto;overflow-y:auto;padding:0 12px 18px;min-height:0;}
+  .ghead{font-family:var(--mono);font-size:9.5px;letter-spacing:1.6px;text-transform:uppercase;
+    padding:16px 10px 5px;display:flex;justify-content:space-between;color:rgba(214,226,248,0.38);}
+  .ghead .gc{color:rgba(214,226,248,0.28);}
+  .item{display:flex;align-items:center;gap:10px;padding:12px 10px;border-radius:10px;cursor:pointer;margin-top:2px;
     border:1px solid transparent;transition:background .15s;}
   .item:hover{background:rgba(255,255,255,0.03);}
   .item .d{width:9px;height:9px;flex:none;border-radius:50%;}
   .item .mid{flex:1;min-width:0;}
-  .item .tx{font-size:15px;line-height:1.4;color:#eef3ff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
-  .item .meta{font-size:12px;letter-spacing:0.3px;color:rgba(214,226,248,0.5);margin-top:3px;display:flex;align-items:center;gap:5px;}
+  .item .tx{font-size:15px;line-height:1.45;color:#eef3ff;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .item .meta{font-size:12px;letter-spacing:0.3px;color:rgba(214,226,248,0.42);margin-top:3px;display:flex;align-items:center;gap:5px;}
   .item .clr{color:var(--ember-1);font-family:var(--mono);font-size:11px;}
   .item .ck{width:26px;height:26px;flex:none;border-radius:7px;cursor:pointer;font-size:13px;line-height:1;background:transparent;}
   .item .rm{width:26px;height:26px;flex:none;border:none;border-radius:7px;background:transparent;
@@ -301,6 +308,7 @@
         <div class="tipsbox" id="tipsBox" style="display:none"></div>
       </div>
       <div class="cap">
+        <div class="kick">Empty your head</div>
         <input id="draft" placeholder="What's on your mind? Type it, press Enter." autocomplete="off"/>
         <div class="segrow" id="catRow"></div>
         <div class="prow" style="margin-top:12px">
@@ -326,6 +334,7 @@
           <button class="planbtn" id="planBtn">✦ Plan my day</button>
         </div>
       </div>
+      <div class="lsec"><div class="kick">On your mind</div></div>
       <div class="filters" id="filters"></div>
       <div class="list bv-scroll" id="list"></div>
     </aside>
@@ -949,9 +958,9 @@
   function setMore(v){moreOpen=v;$('#moreRow').style.display=v?'block':'none';
     $('#moreArrow').textContent=v?'▾':'▸';}
   function segStyle(btn,active,hex){
-    btn.style.border='1px solid '+(active?(hex||'rgba(255,170,110,0.6)'):'rgba(255,255,255,0.12)');
-    btn.style.background=active?(hex?hex+'22':'rgba(255,133,74,0.16)'):'rgba(255,255,255,0.03)';
-    btn.style.color=active?(hex||'#ffb782'):'rgba(214,226,248,0.6)';
+    btn.style.border='1px solid '+(active?(hex||'rgba(255,170,110,0.55)'):'rgba(255,255,255,0.09)');
+    btn.style.background=active?(hex?hex+'22':'rgba(255,133,74,0.14)'):'rgba(255,255,255,0.02)';
+    btn.style.color=active?(hex||'#ffb782'):'rgba(214,226,248,0.55)';
   }
   function buildControls(){
     const catRow=$('#catRow');catRow.innerHTML='';
@@ -1013,15 +1022,13 @@
     renderTips();
   }
   function renderList(){
-    const order={worry:0,task:1,todo:2,idea:3,goal:4};
-    const rows=state.thoughts.filter(t=>state.filter==='all'||t.cat===state.filter)
-      .sort((a,b)=>(a.done-b.done)||(b.prio-a.prio)||(order[a.cat]-order[b.cat])||(b.t-a.t));
     const list=$('#list');list.innerHTML='';
+    const rows=state.thoughts.filter(t=>state.filter==='all'||t.cat===state.filter);
     if(!rows.length){list.innerHTML='<div class="empty">Nothing here yet. Empty your head into the box above.</div>';return;}
-    rows.forEach(t=>{const hex=CATS[t.cat].hex, sel=state.selectedId===t.id;
+    const addRow=t=>{const hex=CATS[t.cat].hex, sel=state.selectedId===t.id;
       const row=document.createElement('div');row.className='item';
       row.style.background=sel?'rgba(255,133,74,0.12)':'';row.style.borderColor=sel?'rgba(255,170,110,0.3)':'transparent';
-      row.style.opacity=t.done?0.55:1;
+      row.style.opacity=t.done?0.5:1;
       row.innerHTML=
         '<span class="d" style="background:'+hex+';box-shadow:'+(t.done?'none':'0 0 8px '+hex)+'"></span>'+
         '<div class="mid"><div class="tx" style="text-decoration:'+(t.done?'line-through':'none')+'">'+esc(t.text)+'</div>'+
@@ -1032,7 +1039,28 @@
       row.querySelector('.ck').onclick=e=>{e.stopPropagation();toggleDone(t.id);};
       row.querySelector('.rm').onclick=e=>{e.stopPropagation();deleteThought(t.id);};
       list.appendChild(row);
-    });
+    };
+    const ghead=(label,count,hex)=>{
+      const h=document.createElement('div');h.className='ghead';
+      h.innerHTML='<span'+(hex?' style="color:'+hex+'99"':'')+'>'+esc(label)+'</span><span class="gc">'+count+'</span>';
+      list.appendChild(h);
+    };
+    const open=rows.filter(t=>!t.done), done=rows.filter(t=>t.done);
+    const byPrio=(a,b)=>(b.prio-a.prio)||(b.t-a.t);
+    if(state.filter==='all'){
+      CAT_ORDER.forEach(k=>{
+        const g=open.filter(t=>t.cat===k).sort(byPrio);
+        if(!g.length)return;
+        ghead(CATS[k].label,g.length,CATS[k].hex);
+        g.forEach(addRow);
+      });
+    }else{
+      open.sort(byPrio).forEach(addRow);
+    }
+    if(done.length){
+      ghead('Set down',done.length,null);
+      done.sort((a,b)=>b.t-a.t).forEach(addRow);
+    }
   }
   function goalHtml(t){
     const hex=CATS.goal.hex;
