@@ -208,6 +208,50 @@
     color:rgba(214,226,248,0.4);font-size:15px;line-height:1;cursor:pointer;}
   .swi .swrm:hover{background:rgba(255,90,60,0.14);color:#ff8c75;}
 
+  /* coach nudge */
+  .coach{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);z-index:24;width:min(430px,92vw);
+    background:rgba(10,16,32,0.97);border:1px solid rgba(255,170,110,0.3);border-radius:16px;padding:16px 18px;
+    box-shadow:0 20px 60px rgba(0,0,0,0.6);display:none;}
+  .coach.show{display:block;animation:coachup .35s ease;}
+  @keyframes coachup{from{opacity:0;transform:translate(-50%,14px)}to{opacity:1;transform:translate(-50%,0)}}
+  .coach .ck{font-family:var(--mono);font-size:10.5px;letter-spacing:1.6px;text-transform:uppercase;color:var(--ember-1);}
+  .coach .ct{font-family:var(--serif);font-size:18px;color:#fff;margin:7px 0 3px;}
+  .coach .cs{font-size:13px;color:var(--ink-dim);line-height:1.5;}
+  .coach .cbtns{display:flex;gap:8px;margin-top:13px;}
+  .coach .cbtns button{flex:1;padding:11px;border-radius:10px;cursor:pointer;font-weight:650;font-size:13.5px;}
+  .coach .cyes{border:none;color:#3a1c08;background:linear-gradient(135deg,var(--ember-1),var(--ember-2));
+    box-shadow:0 6px 18px var(--ember-glow);}
+  .coach .cno{border:1px solid rgba(255,255,255,0.14);background:rgba(255,255,255,0.04);color:var(--ink-dim);}
+
+  /* reset overlay */
+  .reset{position:fixed;inset:0;z-index:26;display:none;align-items:center;justify-content:center;
+    flex-direction:column;background:rgba(2,4,11,0.94);backdrop-filter:blur(8px);text-align:center;padding:24px;}
+  .reset.open{display:flex;}
+  .reset .ring{width:170px;height:170px;border-radius:50%;border:2px solid rgba(255,170,110,0.5);
+    display:grid;place-items:center;animation:breathe 10s ease-in-out infinite;
+    box-shadow:0 0 60px rgba(255,133,74,0.25),inset 0 0 40px rgba(255,133,74,0.12);}
+  @keyframes breathe{0%,100%{transform:scale(1)}50%{transform:scale(1.28)}}
+  .reset .rt{font-family:var(--mono);font-size:30px;color:#ffd2a0;}
+  .reset .rphase{margin-top:26px;font-family:var(--serif);font-style:italic;font-size:19px;color:#fff;}
+  .reset .rtip{margin-top:10px;font-size:14px;color:var(--ink-dim);max-width:420px;line-height:1.6;}
+  .reset .racts{display:flex;gap:10px;margin-top:28px;}
+  .reset .racts button{padding:11px 20px;border-radius:10px;cursor:pointer;font-weight:650;font-size:13.5px;
+    border:1px solid rgba(255,255,255,0.16);background:rgba(255,255,255,0.05);color:var(--ink);}
+  .reset .racts button:hover{background:rgba(255,255,255,0.1);}
+  .reset .feltrow{display:flex;gap:6px;margin-top:18px;flex-wrap:wrap;justify-content:center;}
+  .reset .feltrow button{width:34px;height:34px;border-radius:9px;cursor:pointer;font-weight:700;font-size:13px;
+    border:1px solid rgba(255,255,255,0.16);background:rgba(255,255,255,0.04);color:rgba(214,226,248,0.6);}
+  .reset .feltrow button:hover{border-color:var(--ember-1);color:var(--ember-1);}
+  .reset .feltlab{display:flex;justify-content:space-between;width:100%;max-width:404px;margin-top:6px;
+    font-size:11px;color:var(--ink-faint);}
+  .reset .topth{margin-top:20px;padding:13px 16px;border-radius:12px;background:rgba(255,133,74,0.08);
+    border:1px solid rgba(255,150,70,0.22);max-width:440px;}
+  .reset .topth .tk{font-family:var(--mono);font-size:10.5px;letter-spacing:1.4px;color:var(--ember-1);text-transform:uppercase;}
+  .reset .topth .tv{font-size:15.5px;color:#fff;margin-top:5px;line-height:1.45;}
+  .tipreset{width:100%;margin-top:10px;padding:10px;border-radius:9px;cursor:pointer;font-weight:650;font-size:13px;
+    border:1px solid rgba(255,170,110,.3);background:rgba(255,133,74,.1);color:var(--ember-1);transition:.2s;}
+  .tipreset:hover{background:rgba(255,133,74,.18);}
+
   @media(max-width:880px){
     .outer{flex-direction:column;height:auto;min-height:100vh;}
     .brain{flex:none;height:56vh;min-height:360px;}
@@ -271,6 +315,17 @@
       <div id="planBody"></div>
     </div>
   </div>
+
+  <div class="coach" id="coach">
+    <div class="ck">Headroom · coach</div>
+    <div class="ct">Ready to set something down?</div>
+    <div class="cs">Your head's been filling for a while. Two quiet minutes lowers the noise more than pushing through.</div>
+    <div class="cbtns">
+      <button class="cyes" id="coachYes">Start a 2-min reset</button>
+      <button class="cno" id="coachNo">Not now</button>
+    </div>
+  </div>
+  <div class="reset" id="reset"></div>
 
   <div class="modal" id="sweepModal">
     <div class="box">
@@ -724,6 +779,69 @@
     toast(n+' thought'+(n>1?'s':'')+' set down. Your head just got lighter.');
   }
 
+  /* ---------- coach: nudge -> 2-min reset -> re-entry + felt rating ---------- */
+  const SNOOZE='headroom_coachsnooze_v1';
+  let resetIv=null, phaseIv=null, resetLeft=0;
+  function coachEligible(){
+    if(document.hidden)return false;
+    const s=loadStats();
+    if(s.loadPct<=0.65)return false;
+    if(Date.now()-lastDumpAt()<45*60000)return false;
+    let sn=0;try{sn=+localStorage.getItem(SNOOZE)||0;}catch(e){}
+    if(Date.now()<sn)return false;
+    if(state.selectedId)return false;
+    if($('#reset').classList.contains('open'))return false;
+    if($('#coach').classList.contains('show'))return false;
+    return true;
+  }
+  function coachTick(){if(coachEligible())$('#coach').classList.add('show');}
+  setInterval(coachTick,30000);
+  function snoozeCoach(mins){try{localStorage.setItem(SNOOZE,String(Date.now()+mins*60000));}catch(e){}
+    $('#coach').classList.remove('show');}
+  function topThought(){
+    let best=null,bs=-1;
+    for(const t of state.thoughts){if(t.done)continue;
+      const s=t.prio+((t.mood&&t.mood.stress)?t.mood.stress*1.4:0)+(t.cat==='worry'?2:0);
+      if(s>bs){bs=s;best=t;}}
+    return best;
+  }
+  function startReset(){
+    snoozeCoach(45);
+    const el=$('#reset');el.classList.add('open');
+    resetLeft=120;
+    el.innerHTML=
+      '<div class="ring"><span class="rt" id="resetT">2:00</span></div>'+
+      '<div class="rphase" id="resetPhase">Breathe in…</div>'+
+      '<div class="rtip">'+esc(TIPS[Math.floor(Math.random()*TIPS.length)])+'</div>'+
+      '<div class="racts"><button id="resetExt">+2 min</button><button id="resetEnd">End early</button></div>';
+    const paint=()=>{const t=$('#resetT');if(t)t.textContent=Math.floor(resetLeft/60)+':'+String(resetLeft%60).padStart(2,'0');};
+    paint();
+    let inhale=true;
+    phaseIv=setInterval(()=>{inhale=!inhale;const p=$('#resetPhase');if(p)p.textContent=inhale?'Breathe in…':'…and let it out';},5000);
+    resetIv=setInterval(()=>{resetLeft--;if(resetLeft<=0)endReset();else paint();},1000);
+    $('#resetExt').onclick=()=>{resetLeft+=120;paint();};
+    $('#resetEnd').onclick=endReset;
+  }
+  function endReset(){
+    clearInterval(resetIv);clearInterval(phaseIv);resetIv=phaseIv=null;
+    const el=$('#reset'), top=topThought();
+    el.innerHTML=
+      '<div class="rphase">One deep breath.</div>'+
+      '<div class="rtip">How does your head feel right now?</div>'+
+      '<div class="feltrow">'+[1,2,3,4,5,6,7,8,9,10].map(n=>'<button data-f="'+n+'">'+n+'</button>').join('')+'</div>'+
+      '<div class="feltlab"><span>clear</span><span>very full</span></div>'+
+      (top?'<div class="topth"><div class="tk">If you pick one thing back up</div><div class="tv">'+esc(top.text)+'</div></div>':'')+
+      '<div class="racts"><button id="resetDone">Back to it</button></div>';
+    el.querySelectorAll('.feltrow button').forEach(b=>{b.onclick=()=>{
+      snapshotHistory({felt:+b.dataset.f});
+      el.querySelectorAll('.feltrow button').forEach(x=>{
+        x.style.borderColor='rgba(255,255,255,0.16)';x.style.color='rgba(214,226,248,0.6)';x.style.background='rgba(255,255,255,0.04)';});
+      b.style.borderColor='#ffd2a0';b.style.color='#ffd2a0';b.style.background='rgba(255,210,160,0.12)';
+    };});
+    $('#resetDone').onclick=closeReset;
+  }
+  function closeReset(){const el=$('#reset');el.classList.remove('open');el.innerHTML='';}
+
   /* ---------- render panel ---------- */
   let moreOpen=false;
   function setMore(v){moreOpen=v;$('#moreRow').style.display=v?'block':'none';
@@ -774,7 +892,9 @@
     box.style.display='block';
     const hex=CATS[hot.hotCat].hex;
     box.innerHTML='<div class="tk" style="color:'+hex+'">✦ Your "'+CATS[hot.hotCat].label+'" thoughts are working overtime</div>'+
-      tipPick.map(i=>'<div class="ti">'+esc(TIPS[i%TIPS.length])+'</div>').join('');
+      tipPick.map(i=>'<div class="ti">'+esc(TIPS[i%TIPS.length])+'</div>').join('')+
+      '<button class="tipreset" id="tipReset">✦ Start a 2-minute reset</button>';
+    const tb=$('#tipReset');if(tb)tb.onclick=startReset;
   }
   function renderHead(){
     const active=state.thoughts.filter(t=>!t.done);
@@ -972,7 +1092,12 @@
   $('#sweepBtn').addEventListener('click',openSweep);
   $('#sweepClose').addEventListener('click',()=>$('#sweepModal').classList.remove('open'));
   $('#sweepModal').addEventListener('click',e=>{if(e.target.id==='sweepModal')$('#sweepModal').classList.remove('open');});
-  document.addEventListener('keydown',e=>{if(e.key==='Escape'){$('#planModal').classList.remove('open');$('#sweepModal').classList.remove('open');deselect();}});
+  $('#coachYes').addEventListener('click',()=>{$('#coach').classList.remove('show');startReset();});
+  $('#coachNo').addEventListener('click',()=>snoozeCoach(15));
+  document.addEventListener('keydown',e=>{if(e.key==='Escape'){
+    const r=$('#reset');
+    if(r.classList.contains('open')){if(resetIv)endReset();else closeReset();return;}
+    $('#planModal').classList.remove('open');$('#sweepModal').classList.remove('open');deselect();}});
 
   buildControls();renderAll();snapshotHistory();
   buildScene();resize();
