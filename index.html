@@ -97,6 +97,19 @@
   .card .planstep.done .plantx{color:var(--ink-faint);text-decoration:line-through;}
   .card .plandone{margin-top:8px;padding-top:8px;border-top:1px solid rgba(255,255,255,0.08);
     font-size:12.5px;color:#7fe0a0;}
+  .card .qsbtn{width:100%;margin-top:8px;padding:11px;border-radius:10px;cursor:pointer;font-weight:650;font-size:13.5px;
+    border:1px solid rgba(127,224,160,.35);background:rgba(127,224,160,.08);color:#7fe0a0;transition:.2s;}
+  .card .qsbtn:hover{background:rgba(127,224,160,.15);}
+  .shud{position:absolute;top:16px;left:50%;transform:translateX(-50%);z-index:8;display:none;align-items:center;gap:12px;
+    padding:10px 14px;border-radius:14px;background:rgba(6,12,26,0.85);backdrop-filter:blur(12px);
+    border:1px solid rgba(127,224,160,0.3);box-shadow:0 10px 34px rgba(0,0,0,0.5);}
+  .shud.on{display:flex;}
+  .shud .st2{font-family:var(--mono);font-size:19px;font-weight:700;color:#7fe0a0;}
+  .shud .sk{font-family:var(--mono);font-size:9.5px;letter-spacing:1.4px;text-transform:uppercase;color:rgba(214,226,248,0.5);}
+  .shud .sv{font-size:13px;color:#fff;max-width:230px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .shud button{padding:8px 12px;border-radius:8px;border:1px solid rgba(255,255,255,0.16);background:rgba(255,255,255,0.05);
+    color:var(--ink);font-size:12px;font-weight:650;cursor:pointer;}
+  .shud button:hover{background:rgba(255,255,255,0.1);}
   .ai{margin-top:12px;border-top:1px solid rgba(255,255,255,0.1);padding-top:12px;}
   .ai .kick{font-family:var(--mono);font-size:11px;letter-spacing:1.4px;text-transform:uppercase;color:var(--ember-1);margin-bottom:8px;}
   .ai .head{font-family:var(--serif);font-style:italic;font-size:17px;line-height:1.4;color:#fff;margin-bottom:10px;}
@@ -207,6 +220,9 @@
   .swi .swrm{flex:none;width:24px;height:24px;border:none;border-radius:7px;background:transparent;
     color:rgba(214,226,248,0.4);font-size:15px;line-height:1;cursor:pointer;}
   .swi .swrm:hover{background:rgba(255,90,60,0.14);color:#ff8c75;}
+  .sessgoal{width:100%;margin-top:14px;border:1px solid rgba(255,255,255,0.12);background:rgba(0,0,0,0.25);
+    border-radius:10px;color:#fff;font-size:15px;padding:12px 13px;outline:none;font-family:inherit;}
+  .sessgoal:focus{border-color:rgba(127,224,160,0.5);}
 
   /* coach nudge */
   .coach{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);z-index:24;width:min(430px,92vw);
@@ -267,6 +283,12 @@
       <div class="title"><div class="k">Headroom</div><div class="h">What's on your mind</div></div>
       <div class="nav"><a class="on" href="index.html">Brain dump</a><a href="dashboard.html">Overview</a><a href="connections.html">Connections</a><button class="pop" id="popBtn" title="Pop out a mini Headroom that stays on top while you work">⧉</button></div>
       <div class="hint"><span class="d"></span><span class="t">Click a neuron to read it · worries glow red-hot</span></div>
+      <div class="shud" id="shud">
+        <span class="st2" id="shudT">25:00</span>
+        <span><span class="sk">Quiet session</span><br/><span class="sv" id="shudTx"></span></span>
+        <button id="shudPlus">+5 min</button>
+        <button id="shudEnd">End</button>
+      </div>
     </div>
 
     <aside class="panel">
@@ -331,6 +353,16 @@
     <div class="box">
       <div class="mk"><span id="sweepKick">Headroom · sweep my head</span><button class="mx" id="sweepClose">×</button></div>
       <div id="sweepBody"></div>
+    </div>
+  </div>
+
+  <div class="modal" id="sessModal">
+    <div class="box">
+      <div class="mk"><span>Headroom · quiet session</span><button class="mx" id="sessClose">×</button></div>
+      <div class="bq" id="sessTh"></div>
+      <div class="prow" style="margin-top:14px"><span class="pl">Duration</span><div class="segrow" id="sessDur" style="margin-top:0"></div></div>
+      <input id="sessGoal" class="sessgoal" placeholder="What would 'done' look like? (optional)" autocomplete="off"/>
+      <button class="sweepgo" id="sessGo">◉ Start the session</button>
     </div>
   </div>
 
@@ -587,8 +619,9 @@
       const pulse=0.5+0.5*Math.sin(tm*(isW?3.0:1.4)*PULSE_SPEED+th.x*17);
       const baseR=(SIZES[th.size||'m']||SIZES.m).r;
       const urgencyBoost=1+(th.prio-1)*0.18;
+      const dimW=(session&&session.id!==th.id)?0.13:1;
       const glowR=baseR*2.7*(1+(isW?0.55:0.28)*pulse)*(isHov?1.6:1)*(1+prox*0.5)*(th.done?0.5:1)*urgencyBoost;
-      const al=(th.done?0.16:0.42+0.22*pulse)*(isHov?1.35:1)*(1+prox*0.4)*urgencyBoost;
+      const al=(th.done?0.16:0.42+0.22*pulse)*(isHov?1.35:1)*(1+prox*0.4)*urgencyBoost*dimW;
       const g=ctx.createRadialGradient(p.x,p.y,0,p.x,p.y,glowR);
       g.addColorStop(0,rgba(col,Math.min(al,0.95)));g.addColorStop(0.4,rgba(col,al*0.4));g.addColorStop(1,rgba(col,0));
       ctx.fillStyle=g;ctx.beginPath();ctx.arc(p.x,p.y,glowR,0,6.2832);ctx.fill();
@@ -599,8 +632,11 @@
       const p=lastPos[th.id];if(!p)continue;
       const cc=hexRgb(CATS[th.cat].hex), col=th.done?{r:150,g:165,b:190}:cc;
       const isHov=hov===th.id||selId===th.id, baseR=(SIZES[th.size||'m']||SIZES.m).r;
-      ctx.fillStyle=th.done?rgba({r:190,g:200,b:220},0.55):rgba(PAL.white,0.95);
+      const dimW=(session&&session.id!==th.id)?0.22:1;
+      ctx.fillStyle=th.done?rgba({r:190,g:200,b:220},0.55*dimW):rgba(PAL.white,0.95*dimW);
       ctx.beginPath();ctx.arc(p.x,p.y,baseR*(isHov?1.3:1),0,6.2832);ctx.fill();
+      if(session&&session.id===th.id){ctx.lineWidth=2;ctx.strokeStyle='rgba(127,224,160,0.9)';
+        ctx.beginPath();ctx.arc(p.x,p.y,baseR+9,0,6.2832);ctx.stroke();}
       if(selId===th.id){ctx.lineWidth=2;ctx.strokeStyle=rgba(col,0.95);ctx.beginPath();ctx.arc(p.x,p.y,baseR+7,0,6.2832);ctx.stroke();}
       else if(isHov){ctx.lineWidth=1.4;ctx.strokeStyle=rgba(col,0.7);ctx.beginPath();ctx.arc(p.x,p.y,baseR+5,0,6.2832);ctx.stroke();}
       if(isHov&&selId!==th.id)labelEl={p,text:th.text,col};
@@ -667,7 +703,9 @@
   function setDue(id,due){const th=state.thoughts.find(t=>t.id===id);if(th){th.due=due||null;persist();renderCard();renderList();}}
   function toggleDone(id){const th=state.thoughts.find(t=>t.id===id);if(th){th.done=!th.done;persist();renderAll();}}
   function deleteThought(id){state.thoughts=state.thoughts.filter(t=>t.id!==id);
-    if(state.selectedId===id)state.selectedId=null;persist();renderAll();}
+    if(state.selectedId===id)state.selectedId=null;
+    if(session&&session.id===id)cancelSession();
+    persist();renderAll();}
   function editText(id,text){const th=state.thoughts.find(t=>t.id===id);if(th){th.text=text;th.ai=null;persist();renderList();}}
   function select(id){state.selectedId=id;vidPause();renderCard();renderList();}
   function deselect(){if(state.selectedId===null)return;state.selectedId=null;vidPlay();renderCard();renderList();}
@@ -790,6 +828,7 @@
     let sn=0;try{sn=+localStorage.getItem(SNOOZE)||0;}catch(e){}
     if(Date.now()<sn)return false;
     if(state.selectedId)return false;
+    if(session)return false;
     if($('#reset').classList.contains('open'))return false;
     if($('#coach').classList.contains('show'))return false;
     return true;
@@ -841,6 +880,69 @@
     $('#resetDone').onclick=closeReset;
   }
   function closeReset(){const el=$('#reset');el.classList.remove('open');el.innerHTML='';}
+
+  /* ---------- quiet sessions: one thought, everything else dims ---------- */
+  let session=null, sessionIv=null;
+  function histTodayVal(k){const e=readHistory().find(x=>x.date===todayKey());return (e&&e[k])||0;}
+  function paintSession(){const t=$('#shudT');
+    if(t&&session)t.textContent=Math.floor(session.left/60)+':'+String(session.left%60).padStart(2,'0');}
+  let sessDurPick=25;
+  function paintSessDur(){
+    const row=$('#sessDur');row.innerHTML='';
+    [10,25,45].forEach(m=>{const b=document.createElement('button');b.className='seg';b.textContent=m+' min';
+      segStyle(b,sessDurPick===m,'#7fe0a0');
+      b.onclick=()=>{sessDurPick=m;paintSessDur();};row.appendChild(b);});
+  }
+  function openSessionStart(id){
+    const th=state.thoughts.find(x=>x.id===id);if(!th)return;
+    sessDurPick=25;
+    $('#sessTh').textContent='"'+th.text+'"';
+    $('#sessGoal').value='';
+    paintSessDur();
+    $('#sessModal').classList.add('open');
+    $('#sessGo').onclick=()=>{$('#sessModal').classList.remove('open');
+      startSession(id,sessDurPick,$('#sessGoal').value.trim());};
+  }
+  function startSession(id,mins,goal){
+    const th=state.thoughts.find(x=>x.id===id);if(!th)return;
+    session={id,left:(mins||25)*60,started:Date.now(),goal:goal||''};
+    deselect();
+    $('#shudTx').textContent=th.text;
+    $('#shud').classList.add('on');
+    paintSession();
+    sessionIv=setInterval(()=>{session.left--;if(session.left<=0)endSession();else paintSession();},1000);
+  }
+  function cancelSession(){clearInterval(sessionIv);sessionIv=null;session=null;$('#shud').classList.remove('on');}
+  function endSession(){
+    const th=state.thoughts.find(x=>x.id===session.id);
+    const goal=session.goal;
+    const mins=Math.max(1,Math.round((Date.now()-session.started)/60000));
+    cancelSession();
+    snapshotHistory({sessions:histTodayVal('sessions')+1,sessionMins:histTodayVal('sessionMins')+mins});
+    if(!th)return;
+    const sub=(th.subtasks&&th.subtasks.length)
+      ?'<div class="rtip">'+th.subtasks.filter(s=>s.done).length+'/'+th.subtasks.length+' plan steps ticked off.</div>':'';
+    const el=$('#reset');el.classList.add('open');
+    el.innerHTML=
+      '<div class="rphase">Session done.</div>'+
+      '<div class="rtip">You gave "'+esc(th.text)+'" '+mins+' quiet minute'+(mins>1?'s':'')+'. That\'s how things actually get lighter.</div>'+
+      (goal?'<div class="rtip" style="color:#7fe0a0">Your intention: "'+esc(goal)+'"</div>':'')+sub+
+      '<div class="racts"><button id="sessDone">Mark it done</button><button id="sessKeep">Keep it open</button></div>'+
+      '<div class="rtip" style="margin-top:22px">How does your head feel?</div>'+
+      '<div class="feltrow">'+[1,2,3,4,5,6,7,8,9,10].map(n=>'<button data-f="'+n+'">'+n+'</button>').join('')+'</div>'+
+      '<div class="feltlab"><span>clear</span><span>very full</span></div>';
+    el.querySelectorAll('.feltrow button').forEach(b=>{b.onclick=()=>{
+      snapshotHistory({felt:+b.dataset.f});
+      el.querySelectorAll('.feltrow button').forEach(x=>{
+        x.style.borderColor='rgba(255,255,255,0.16)';x.style.color='rgba(214,226,248,0.6)';x.style.background='rgba(255,255,255,0.04)';});
+      b.style.borderColor='#ffd2a0';b.style.color='#ffd2a0';b.style.background='rgba(255,210,160,0.12)';
+    };});
+    $('#sessDone').onclick=()=>{th.done=true;persist();renderAll();closeReset();
+      toast('Done and set down. One less thing circling.');};
+    $('#sessKeep').onclick=closeReset;
+  }
+  $('#shudPlus').addEventListener('click',()=>{if(session){session.left+=300;paintSession();}});
+  $('#shudEnd').addEventListener('click',()=>{if(session)endSession();});
 
   /* ---------- render panel ---------- */
   let moreOpen=false;
@@ -990,6 +1092,7 @@
       (t.cat==='goal'?goalHtml(t):'')+
       (t.cat==='task'?planHtml(t):'')+
       moodHtml(t)+
+      (!t.done?'<button class="qsbtn">◉ Quiet session — just this</button>':'')+
       '<div class="acts"><button class="done" style="border:1px solid '+hex+'66;background:'+hex+'22;color:'+hex+'">'+
       (t.done?'Mark active':'Mark done')+'</button>'+
       '<button class="del">Delete</button></div>'+
@@ -1004,6 +1107,7 @@
     const di=card.querySelector('.goaldue');if(di)di.onchange=e=>setDue(t.id,e.target.value);
     const cb=card.querySelector('.clearbtn');if(cb)cb.onclick=()=>clearThought(t);
     const pb=card.querySelector('.planbrk');if(pb)pb.onclick=()=>breakdownTask(t);
+    const qb=card.querySelector('.qsbtn');if(qb)qb.onclick=()=>openSessionStart(t.id);
     card.querySelectorAll('.planstep').forEach(el=>{el.onclick=()=>toggleSubtask(t.id,+el.dataset.i);});
     stage.appendChild(card);
   }
@@ -1094,10 +1198,14 @@
   $('#sweepModal').addEventListener('click',e=>{if(e.target.id==='sweepModal')$('#sweepModal').classList.remove('open');});
   $('#coachYes').addEventListener('click',()=>{$('#coach').classList.remove('show');startReset();});
   $('#coachNo').addEventListener('click',()=>snoozeCoach(15));
+  $('#sessClose').addEventListener('click',()=>$('#sessModal').classList.remove('open'));
+  $('#sessModal').addEventListener('click',e=>{if(e.target.id==='sessModal')$('#sessModal').classList.remove('open');});
+  $('#sessGoal').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();$('#sessGo').click();}});
   document.addEventListener('keydown',e=>{if(e.key==='Escape'){
     const r=$('#reset');
     if(r.classList.contains('open')){if(resetIv)endReset();else closeReset();return;}
-    $('#planModal').classList.remove('open');$('#sweepModal').classList.remove('open');deselect();}});
+    $('#planModal').classList.remove('open');$('#sweepModal').classList.remove('open');
+    $('#sessModal').classList.remove('open');deselect();}});
 
   buildControls();renderAll();snapshotHistory();
   buildScene();resize();
