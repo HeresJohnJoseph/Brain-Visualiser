@@ -121,9 +121,7 @@
   .load .lr{display:flex;justify-content:space-between;font-size:12.5px;color:rgba(214,226,248,0.55);margin-bottom:6px;}
   .load .bar{height:7px;border-radius:99px;background:rgba(255,255,255,0.07);overflow:hidden;}
   .load .bar i{display:block;height:100%;border-radius:99px;transition:width .4s ease,background .4s ease;}
-  .planbtn{width:100%;margin-top:13px;padding:11px;border-radius:10px;border:1px solid rgba(255,170,110,.3);cursor:pointer;
-    background:rgba(255,133,74,.1);color:var(--ember-1);font-weight:650;font-size:14px;display:flex;align-items:center;
-    justify-content:center;gap:7px;transition:.2s;}
+  .planbtn{border:1px solid rgba(255,170,110,.3);background:rgba(255,133,74,.1);color:var(--ember-1);}
   .planbtn:hover{background:rgba(255,133,74,.18);}
   .tipsbox{margin-top:12px;padding:12px 14px;border-radius:12px;background:rgba(255,150,70,.07);
     border:1px solid rgba(255,150,70,.18);}
@@ -132,20 +130,27 @@
     border-top:1px solid rgba(255,255,255,0.06);}
   .tipsbox .ti:first-of-type{border-top:none;padding-top:0;margin-top:0;}
 
-  .cap{padding:16px 20px;border-bottom:1px solid rgba(255,255,255,0.07);}
-  .cap input{width:100%;border:1px solid rgba(255,255,255,0.12);background:rgba(0,0,0,0.25);border-radius:10px;
-    color:#fff;font-size:16px;padding:13px 14px;outline:none;transition:border-color .2s;}
-  .cap input:focus{border-color:rgba(255,170,110,0.5);}
-  .segrow{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap;}
+  .cap{padding:18px 20px;border-bottom:1px solid rgba(255,255,255,0.07);}
+  .cap input{width:100%;border:1px solid rgba(255,255,255,0.14);background:rgba(0,0,0,0.28);border-radius:12px;
+    color:#fff;font-size:17px;padding:16px;outline:none;transition:border-color .2s;}
+  .cap input:focus{border-color:rgba(255,170,110,0.55);box-shadow:0 0 0 3px rgba(255,133,74,0.1);}
+  .segrow{display:flex;gap:7px;margin-top:12px;flex-wrap:wrap;}
   .prow{display:flex;align-items:center;gap:8px;margin-top:10px;flex-wrap:wrap;}
-  .prow .pl{font-size:12.5px;color:rgba(214,226,248,0.5);}
-  .seg{padding:8px 13px;border-radius:8px;font-size:13.5px;font-weight:600;cursor:pointer;white-space:nowrap;
+  .prow .pl{font-size:13px;color:rgba(214,226,248,0.5);}
+  .seg{padding:10px 15px;border-radius:9px;font-size:14px;font-weight:600;cursor:pointer;white-space:nowrap;
     border:1px solid rgba(255,255,255,0.12);background:rgba(255,255,255,0.03);color:rgba(214,226,248,0.6);transition:.15s;}
   #dueInput{border:1px solid rgba(255,255,255,0.12);background:rgba(0,0,0,0.25);border-radius:8px;
     color:#fff;font-size:14px;padding:7px 10px;outline:none;color-scheme:dark;}
-  .add{margin-left:auto;padding:10px 18px;border-radius:9px;border:none;
-    background:linear-gradient(135deg,var(--ember-1),var(--ember-2));color:#3a1c08;font-size:14.5px;font-weight:700;cursor:pointer;
+  .morebtn{background:none;border:none;color:rgba(214,226,248,0.5);font-size:13.5px;font-weight:600;
+    cursor:pointer;padding:8px 2px;display:flex;align-items:center;gap:6px;transition:.2s;}
+  .morebtn:hover{color:#fff;}
+  .add{margin-left:auto;padding:12px 26px;border-radius:10px;border:none;
+    background:linear-gradient(135deg,var(--ember-1),var(--ember-2));color:#3a1c08;font-size:15.5px;font-weight:700;cursor:pointer;
     box-shadow:0 6px 18px var(--ember-glow);}
+  .duo{display:flex;gap:8px;margin-top:14px;}
+  .duo button{flex:1;padding:12px 8px;border-radius:10px;cursor:pointer;font-weight:650;font-size:13.5px;transition:.2s;}
+  .sweepbtn{border:1px solid rgba(91,157,255,.35);background:rgba(91,157,255,.1);color:#8fbcff;}
+  .sweepbtn:hover{background:rgba(91,157,255,.18);}
 
   .filters{display:flex;gap:6px;padding:14px 20px 10px;flex-wrap:wrap;}
   .filters .seg{display:inline-flex;align-items:center;padding:7px 11px;}
@@ -184,6 +189,25 @@
   .modal .park{margin-top:8px;font-size:14px;color:#bff3e9;background:rgba(91,224,208,.08);
     border:1px solid rgba(91,224,208,.18);border-radius:12px;padding:12px 14px;}
 
+  /* brain sweep */
+  .sweeptx{width:100%;min-height:180px;resize:vertical;border:1px solid rgba(255,255,255,0.12);
+    background:rgba(0,0,0,0.25);border-radius:12px;color:#fff;font-size:16px;line-height:1.6;
+    padding:14px;outline:none;margin-top:14px;font-family:inherit;}
+  .sweeptx:focus{border-color:rgba(91,157,255,0.5);}
+  .sweepgo,.swall{width:100%;margin-top:12px;padding:13px;border-radius:10px;border:none;cursor:pointer;
+    font-weight:700;font-size:15px;color:#3a1c08;background:linear-gradient(135deg,var(--ember-1),var(--ember-2));
+    box-shadow:0 6px 18px var(--ember-glow);}
+  .swagain{width:100%;margin-top:8px;padding:10px;border-radius:10px;cursor:pointer;font-weight:600;font-size:13px;
+    background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.12);color:var(--ink-dim);}
+  .swi{display:flex;align-items:center;gap:10px;padding:11px 2px;border-top:1px solid rgba(255,255,255,0.08);}
+  .swi:first-of-type{border-top:none;}
+  .swi .swcat{flex:none;padding:5px 11px;border-radius:999px;font-size:11.5px;font-weight:700;cursor:pointer;border:1px solid;}
+  .swi .swtx{flex:1;font-size:14.5px;line-height:1.4;}
+  .swi .swsz{flex:none;font-family:var(--mono);font-size:11px;color:var(--ink-faint);}
+  .swi .swrm{flex:none;width:24px;height:24px;border:none;border-radius:7px;background:transparent;
+    color:rgba(214,226,248,0.4);font-size:15px;line-height:1;cursor:pointer;}
+  .swi .swrm:hover{background:rgba(255,90,60,0.14);color:#ff8c75;}
+
   @media(max-width:880px){
     .outer{flex-direction:column;height:auto;min-height:100vh;}
     .brain{flex:none;height:56vh;min-height:360px;}
@@ -208,24 +232,32 @@
           <div class="lr"><span>Mental load</span><span id="loadLabel">Clear</span></div>
           <div class="bar"><i id="loadBar"></i></div>
         </div>
-        <button class="planbtn" id="planBtn">✦ Plan my day</button>
         <div class="tipsbox" id="tipsBox" style="display:none"></div>
       </div>
       <div class="cap">
-        <input id="draft" placeholder="Add a thought, then press Enter…" autocomplete="off"/>
+        <input id="draft" placeholder="What's on your mind? Type it, press Enter." autocomplete="off"/>
         <div class="segrow" id="catRow"></div>
-        <div class="prow" id="dueRow" style="display:none">
-          <span class="pl">By</span>
-          <input type="date" id="dueInput" />
-        </div>
-        <div class="prow">
-          <span class="pl">Urgency</span>
-          <div class="segrow" id="prioRow" style="margin-top:0"></div>
-        </div>
-        <div class="prow">
-          <span class="pl">Size</span>
-          <div class="segrow" id="sizeRow" style="margin-top:0"></div>
+        <div class="prow" style="margin-top:12px">
+          <button class="morebtn" id="moreBtn"><span id="moreArrow">▸</span> More options</button>
           <button class="add" id="addBtn">Add</button>
+        </div>
+        <div id="moreRow" style="display:none">
+          <div class="prow" id="dueRow" style="display:none">
+            <span class="pl">By</span>
+            <input type="date" id="dueInput" />
+          </div>
+          <div class="prow">
+            <span class="pl">Urgency</span>
+            <div class="segrow" id="prioRow" style="margin-top:0"></div>
+          </div>
+          <div class="prow">
+            <span class="pl">Size</span>
+            <div class="segrow" id="sizeRow" style="margin-top:0"></div>
+          </div>
+        </div>
+        <div class="duo">
+          <button class="sweepbtn" id="sweepBtn">✦ Sweep my head</button>
+          <button class="planbtn" id="planBtn">✦ Plan my day</button>
         </div>
       </div>
       <div class="filters" id="filters"></div>
@@ -237,6 +269,13 @@
     <div class="box">
       <div class="mk"><span id="planKick">Headroom · planning your day</span><button class="mx" id="planClose">×</button></div>
       <div id="planBody"></div>
+    </div>
+  </div>
+
+  <div class="modal" id="sweepModal">
+    <div class="box">
+      <div class="mk"><span id="sweepKick">Headroom · sweep my head</span><button class="mx" id="sweepClose">×</button></div>
+      <div id="sweepBody"></div>
     </div>
   </div>
 
@@ -300,7 +339,8 @@
       if(cat==='goal')th.due='2026-11-01';
       return th;});
   }
-  function persist(){try{localStorage.setItem(LS,JSON.stringify(state.thoughts));}catch(e){}}
+  function persist(){try{localStorage.setItem(LS,JSON.stringify(state.thoughts));}catch(e){}
+    snapshotHistory();}
   const LAST_DUMP='headroom_lastdump_v1';
   function markDump(){try{localStorage.setItem(LAST_DUMP,String(Date.now()));}catch(e){}}
   function lastDumpAt(){
@@ -314,6 +354,20 @@
     const loadPct=Math.min(loadV/22,1);
     return {headroom:Math.round((1-loadPct)*100),loadPct,
       thoughts:active.length,worries:active.filter(t=>t.cat==='worry').length};
+  }
+  /* one entry per day, last write wins — read by Overview for trends */
+  const HIST='headroom_history_v1';
+  const todayKey=()=>{const d=new Date();
+    return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');};
+  function readHistory(){try{const h=JSON.parse(localStorage.getItem(HIST));return Array.isArray(h)?h:[];}catch(e){return [];}}
+  function snapshotHistory(patch){
+    const h=readHistory(), key=todayKey(), s=loadStats();
+    const done=state.thoughts.filter(t=>t.done).length;
+    let e=h.find(x=>x.date===key);
+    if(!e){e={date:key,felt:null};h.push(e);}
+    Object.assign(e,{headroom:s.headroom,loadPct:+s.loadPct.toFixed(3),
+      thoughts:s.thoughts,worries:s.worries,done},patch||{});
+    try{localStorage.setItem(HIST,JSON.stringify(h.slice(-90)));}catch(e2){}
   }
   (function boot(){let t=null;try{const raw=localStorage.getItem(LS);if(raw)t=JSON.parse(raw);}catch(e){}
     state.thoughts=(t&&Array.isArray(t)&&t.length)?t:seed();})();
@@ -615,7 +669,65 @@
     }catch(e){$('#planBody').innerHTML='<div class="bq">Couldn\'t reach the planner — is the server running?</div>';}
   }
 
+  /* ---------- brain sweep ---------- */
+  let sweepItems=[];
+  function openSweep(){
+    $('#sweepModal').classList.add('open');
+    $('#sweepKick').textContent='Headroom · sweep my head';
+    $('#sweepBody').innerHTML=
+      '<div class="bq">Just type. Don\'t sort, don\'t rank — get it all out and we\'ll do the tidying.</div>'+
+      '<textarea class="sweeptx" id="sweepTx" placeholder="Everything on your mind, in any order…"></textarea>'+
+      '<button class="sweepgo" id="sweepGo">✦ Sort it for me</button>';
+    const tx=$('#sweepTx');tx.focus();
+    $('#sweepGo').onclick=()=>runSweep(tx.value);
+  }
+  async function runSweep(text){
+    text=(text||'').trim();if(!text)return;
+    $('#sweepBody').innerHTML='<div class="skel" style="width:92%;height:16px"></div><div class="skel" style="width:70%"></div><div class="skel" style="width:80%"></div>';
+    try{
+      const r=await fetch('/api/sweep',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text})});
+      const d=await r.json();
+      sweepItems=(d.items||[]).map(it=>({text:String(it.text||'').trim(),
+        cat:CATS[it.cat]?it.cat:'todo',size:SIZES[it.size]?it.size:'m'})).filter(it=>it.text);
+      $('#sweepKick').textContent='Headroom · '+(d.source==='mock'?'offline sort':'sorted');
+      renderSweepReview();
+    }catch(e){$('#sweepBody').innerHTML='<div class="bq">Couldn\'t reach the sorter — is the server running?</div>';}
+  }
+  function renderSweepReview(){
+    if(!sweepItems.length){$('#sweepBody').innerHTML='<div class="bq">Nothing to sort — your head might be clearer than you think.</div>';return;}
+    $('#sweepBody').innerHTML=
+      '<div class="bq">'+sweepItems.length+' thought'+(sweepItems.length>1?'s':'')+' found. Tap a label if we sorted one wrong.</div>'+
+      sweepItems.map((it,i)=>{const hex=CATS[it.cat].hex;
+        return '<div class="swi" data-i="'+i+'">'+
+          '<button class="swcat" style="border-color:'+hex+'66;background:'+hex+'22;color:'+hex+'">'+CATS[it.cat].label+'</button>'+
+          '<span class="swtx">'+esc(it.text)+'</span>'+
+          '<span class="swsz">'+SIZES[it.size].label+'</span>'+
+          '<button class="swrm">×</button></div>';}).join('')+
+      '<button class="swall">Set all '+sweepItems.length+' down in the brain</button>'+
+      '<button class="swagain">Start over</button>';
+    $('#sweepBody').querySelectorAll('.swcat').forEach(b=>{b.onclick=()=>{
+      const i=+b.closest('.swi').dataset.i;
+      sweepItems[i].cat=CAT_ORDER[(CAT_ORDER.indexOf(sweepItems[i].cat)+1)%CAT_ORDER.length];
+      renderSweepReview();};});
+    $('#sweepBody').querySelectorAll('.swrm').forEach(b=>{b.onclick=()=>{
+      sweepItems.splice(+b.closest('.swi').dataset.i,1);renderSweepReview();};});
+    $('#sweepBody').querySelector('.swall').onclick=addSweepItems;
+    $('#sweepBody').querySelector('.swagain').onclick=openSweep;
+  }
+  function addSweepItems(){
+    sweepItems.forEach(it=>{const p=pos(it.cat,rnd(-0.06,0.06),rnd(-0.05,0.05));
+      state.thoughts.push({id:newId(),text:it.text,cat:it.cat,prio:2,size:it.size,done:false,
+        x:p.x,y:p.y,t:Date.now(),due:null,mood:{joy:0,stress:0,excitement:0}});});
+    const n=sweepItems.length;sweepItems=[];
+    markDump();persist();renderAll();
+    $('#sweepModal').classList.remove('open');
+    toast(n+' thought'+(n>1?'s':'')+' set down. Your head just got lighter.');
+  }
+
   /* ---------- render panel ---------- */
+  let moreOpen=false;
+  function setMore(v){moreOpen=v;$('#moreRow').style.display=v?'block':'none';
+    $('#moreArrow').textContent=v?'▾':'▸';}
   function segStyle(btn,active,hex){
     btn.style.border='1px solid '+(active?(hex||'rgba(255,170,110,0.6)'):'rgba(255,255,255,0.12)');
     btn.style.background=active?(hex?hex+'22':'rgba(255,133,74,0.16)'):'rgba(255,255,255,0.03)';
@@ -624,7 +736,7 @@
   function buildControls(){
     const catRow=$('#catRow');catRow.innerHTML='';
     CAT_ORDER.forEach(k=>{const b=document.createElement('button');b.className='seg';b.textContent=CATS[k].label;
-      b.onclick=()=>{state.cat=k;paintControls();};catRow.appendChild(b);b._k=k;});
+      b.onclick=()=>{state.cat=k;if(k==='goal')setMore(true);paintControls();};catRow.appendChild(b);b._k=k;});
     const prioRow=$('#prioRow');prioRow.innerHTML='';
     [1,2,3].forEach(p=>{const b=document.createElement('button');b.className='seg';b.textContent='P'+p;
       b.onclick=()=>{state.prio=p;paintControls();};prioRow.appendChild(b);b._p=p;});
@@ -856,9 +968,13 @@
   $('#draft').addEventListener('input',e=>{state.draft=e.target.value;});
   $('#draft').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();addThought();}});
   $('#addBtn').addEventListener('click',addThought);
-  document.addEventListener('keydown',e=>{if(e.key==='Escape'){$('#planModal').classList.remove('open');deselect();}});
+  $('#moreBtn').addEventListener('click',()=>setMore(!moreOpen));
+  $('#sweepBtn').addEventListener('click',openSweep);
+  $('#sweepClose').addEventListener('click',()=>$('#sweepModal').classList.remove('open'));
+  $('#sweepModal').addEventListener('click',e=>{if(e.target.id==='sweepModal')$('#sweepModal').classList.remove('open');});
+  document.addEventListener('keydown',e=>{if(e.key==='Escape'){$('#planModal').classList.remove('open');$('#sweepModal').classList.remove('open');deselect();}});
 
-  buildControls();renderAll();
+  buildControls();renderAll();snapshotHistory();
   buildScene();resize();
   new ResizeObserver(()=>{resize();renderCard();}).observe(stage);
   requestAnimationFrame(loop);

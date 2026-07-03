@@ -97,6 +97,38 @@ Rules:
 - No markdown, no emojis, no headers, no numbering in the text itself. JSON only."""
 
 
+SWEEP_SYSTEM = """You are Headroom — a calm assistant that tidies a messy brain dump. \
+The user typed everything on their mind in one unsorted stream. Split it into \
+individual, self-contained thoughts.
+
+Return ONLY valid JSON (no prose, no code fences) matching exactly:
+{
+  "items": [
+    {"text": "the thought, lightly cleaned up", "cat": "task|todo|worry|idea|goal", "size": "s|m|l"}
+  ]
+}
+
+Rules:
+- Preserve the user's own words as much as possible; fix only obvious typos, drop filler.
+- One item per distinct thought; never merge two concerns into one item. Max 12 items.
+- cat: task = work needing focused effort; todo = errand or small life admin; worry = a
+  fear or anxiety that loops ("keeping me up"); idea = something to explore or create;
+  goal = longer-term aspiration.
+- size: s = minutes, m = an hour or two, l = big or multi-day.
+- No markdown, no emojis. JSON only."""
+
+ASK_SYSTEM = """You are Headroom — a calm, sharp companion who can see everything on \
+the user's mind (their thought list is provided). Answer their question with that \
+context. Brief, warm, concrete — a few sentences, or 2-3 tight moves if they ask what \
+to do.
+
+Return ONLY valid JSON (no prose, no code fences) matching exactly:
+{"answer": "your reply, plain text, max ~90 words"}
+
+Rules: ground every answer in their actual thoughts when relevant; never invent items; \
+if their head is empty, say so kindly. No markdown, no emojis. JSON only."""
+
+
 def _post_messages(system: str, user: str, max_tokens: int = 700) -> str:
     """Raw Anthropic Messages call. Returns concatenated text or raises."""
     payload = {
@@ -199,6 +231,105 @@ def mock_breakdown(thought: str, reason: str) -> dict:
             "Block time for the rest, then step away.",
         ],
     }
+
+
+def shape_sweep(d: dict) -> dict:
+    cats = {"task", "todo", "worry", "idea", "goal"}
+    sizes = {"s", "m", "l"}
+    items = []
+    for it in (d.get("items") or [])[:12]:
+        if not isinstance(it, dict):
+            continue
+        text = str(it.get("text", "")).strip()
+        if not text:
+            continue
+        items.append({"text": text[:200],
+                      "cat": it.get("cat") if it.get("cat") in cats else "todo",
+                      "size": it.get("size") if it.get("size") in sizes else "m"})
+    return {"items": items}
+
+
+WORRY_HINTS = ("worried", "worry", "afraid", "scared", "anxious", "what if",
+               "will we", "can't stop", "keeping me up")
+TODO_HINTS = ("buy ", "book ", "call ", "email ", "renew ", "pay ", "pick up",
+              "schedule ", "cancel ")
+IDEA_HINTS = ("idea", "maybe ", "what about", "could try", "should try", "imagine")
+
+
+def mock_sweep(text: str, reason: str) -> dict:
+    """Offline fallback: split on lines/sentences, guess category by keyword."""
+    parts = []
+    for line in re.split(r"[\n;]+|(?<=[.!?])\s+", text):
+        line = line.strip(" -•\t")
+        if len(line) > 2:
+            parts.append(line[:200])
+        if len(parts) == 12:
+            break
+    items = []
+    for p in parts:
+        low = p.lower()
+        if "?" in p or any(h in low for h in WORRY_HINTS):
+            cat = "worry"
+        elif any(low.startswith(h) or (" " + h) in low for h in TODO_HINTS):
+            cat = "todo"
+        elif any(h in low for h in IDEA_HINTS):
+            cat = "idea"
+        else:
+            cat = "task"
+        items.append({"text": p, "cat": cat,
+                      "size": "l" if len(p) > 90 else ("m" if len(p) > 40 else "s")})
+    return {"ok": True, "source": "mock", "reason": reason, "items": items}
+
+
+def call_sweep(text: str) -> dict:
+    """Split a freeform brain dump into categorised thoughts."""
+    if not API_KEY:
+        return mock_sweep(text, reason="no_api_key")
+    try:
+        out = _post_messages(SWEEP_SYSTEM, text, max_tokens=900)
+        return {"ok": True, "source": MODEL, **shape_sweep(json.loads(_clean(out)))}
+    except Exception as e:  # noqa: BLE001
+        print(f"[headroom] sweep call failed: {e}")
+        return mock_sweep(text, reason="api_unreachable")
+
+
+def _thoughts_context(thoughts: list) -> str:
+    lines = []
+    for t in thoughts[:40]:
+        if not isinstance(t, dict):
+            continue
+        flag = " (done)" if t.get("done") else ""
+        lines.append(f"- [{t.get('cat', '?')}/P{t.get('prio', 2)}] "
+                     f"{str(t.get('text', '')).strip()[:120]}{flag}")
+    return "\n".join(lines) or "(nothing — the list is empty)"
+
+
+def mock_ask(question: str, thoughts: list, reason: str) -> dict:
+    open_t = [t for t in thoughts if isinstance(t, dict) and not t.get("done")]
+    if not open_t:
+        ans = "Your head looks clear — nothing open right now. Enjoy the quiet."
+    else:
+        top = sorted(open_t, key=lambda t: -int(t.get("prio", 2) or 2))[:2]
+        names = " and ".join('"' + str(t.get("text", ""))[:40] + '"' for t in top)
+        ans = (f"You have {len(open_t)} open thoughts. The heaviest right now: {names}. "
+               "Start with five minutes on the first one.")
+    return {"ok": True, "source": "mock", "reason": reason, "answer": ans}
+
+
+def call_ask(question: str, thoughts: list) -> dict:
+    """Free-form question answered over the user's current thought list."""
+    if not API_KEY:
+        return mock_ask(question, thoughts, reason="no_api_key")
+    user = ("My current thoughts:\n" + _thoughts_context(thoughts) +
+            "\n\nMy question: " + question)
+    try:
+        out = _post_messages(ASK_SYSTEM, user, max_tokens=400)
+        d = json.loads(_clean(out))
+        ans = str(d.get("answer", "")).strip() or "I'm here — ask me again in a different way?"
+        return {"ok": True, "source": MODEL, "answer": ans[:600]}
+    except Exception as e:  # noqa: BLE001
+        print(f"[headroom] ask call failed: {e}")
+        return mock_ask(question, thoughts, reason="api_unreachable")
 
 
 def _clean(text: str) -> str:
@@ -361,6 +492,19 @@ class Handler(BaseHTTPRequestHandler):
             if not thought:
                 return self._send(400, json.dumps({"error": "empty thought"}))
             return self._send(200, json.dumps(call_breakdown(thought)))
+
+        if route == "/api/sweep":
+            text = str(payload.get("text", "")).strip()
+            if not text:
+                return self._send(400, json.dumps({"error": "empty text"}))
+            return self._send(200, json.dumps(call_sweep(text)))
+
+        if route == "/api/ask":
+            question = str(payload.get("question", "")).strip()
+            thoughts = payload.get("thoughts") or []
+            if not question:
+                return self._send(400, json.dumps({"error": "empty question"}))
+            return self._send(200, json.dumps(call_ask(question, thoughts)))
 
         return self._send(404, json.dumps({"error": "not found"}))
 
