@@ -38,7 +38,7 @@
   .nav .pop{padding:7px 11px;border-radius:8px;border:none;background:transparent;color:var(--ink-dim);
     font-size:14px;line-height:1;cursor:pointer;transition:.2s;}
   .nav .pop:hover{color:#fff;background:rgba(255,255,255,0.07);}
-  #toast{position:fixed;left:50%;bottom:26px;transform:translate(-50%,16px);z-index:30;opacity:0;
+  #toast{position:fixed;left:50%;bottom:120px;transform:translate(-50%,16px);z-index:30;opacity:0;
     padding:11px 18px;border-radius:12px;background:rgba(10,16,32,0.96);border:1px solid rgba(255,255,255,0.14);
     color:var(--ink);font-size:13.5px;pointer-events:none;transition:.3s;}
   #toast.show{opacity:1;transform:translate(-50%,0);}
@@ -151,11 +151,34 @@
   .skel{height:11px;border-radius:6px;margin:8px 0;background:linear-gradient(90deg,rgba(255,255,255,.05),rgba(255,255,255,.13),rgba(255,255,255,.05));background-size:200% 100%;animation:sheen 1.3s linear infinite;}
   @keyframes sheen{to{background-position:-200% 0}}
 
-  /* panel */
-  .panel{flex:none;width:380px;height:100%;display:flex;flex-direction:column;
-    background:rgba(7,12,24,0.92);border-left:1px solid rgba(255,255,255,0.08);backdrop-filter:blur(10px);}
+  /* panel — a drawer now: closed on landing, the brain is the hero */
+  .panel{position:fixed;right:0;top:0;bottom:0;z-index:12;width:min(400px,100vw);
+    display:flex;flex-direction:column;transform:translateX(103%);
+    transition:transform .38s cubic-bezier(.2,.8,.2,1);
+    background:rgba(7,12,24,0.94);border-left:1px solid rgba(255,255,255,0.08);backdrop-filter:blur(14px);
+    box-shadow:-30px 0 80px rgba(0,0,0,0.45);}
+  .panel.open{transform:none;}
+  .phead .pclose{margin-left:12px;width:26px;height:26px;border:none;border-radius:8px;cursor:pointer;
+    background:rgba(255,255,255,0.05);color:rgba(255,255,255,0.55);font-size:16px;line-height:1;}
+  .phead .pclose:hover{background:rgba(255,255,255,0.12);color:#fff;}
+
+  /* quiet lower-third: greeting + one capture line */
+  .qcap{position:absolute;left:50%;bottom:26px;transform:translateX(-50%);z-index:6;
+    width:min(600px,calc(100% - 36px));}
+  .qgreet{text-align:center;font-family:var(--serif);font-size:18px;color:rgba(232,238,255,0.85);
+    margin-bottom:12px;text-shadow:0 2px 18px rgba(0,0,0,0.7);}
+  .qgreet em{font-style:italic;color:var(--ember-1);}
+  .qgreet .qs{color:rgba(214,226,248,0.6);font-size:15px;}
+  .qrow{display:flex;align-items:center;gap:10px;padding:9px 10px 9px 16px;border-radius:16px;
+    background:rgba(6,12,26,0.6);backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,0.1);}
+  .qdots{display:flex;gap:6px;flex:none;}
+  .qd{width:15px;height:15px;border-radius:50%;border:none;cursor:pointer;padding:0;transition:.15s;opacity:.5;}
+  .qd.on{opacity:1;box-shadow:0 0 0 2px rgba(255,255,255,0.85);}
+  .qrow input{flex:1;min-width:0;border:none;background:transparent;color:#fff;font-size:16px;
+    padding:9px 4px;outline:none;}
   .phead{padding:20px 20px 14px;border-bottom:1px solid rgba(255,255,255,0.07);}
-  .phead .top{display:flex;align-items:baseline;justify-content:space-between;}
+  .phead .top{display:flex;align-items:center;}
+  .phead .top .c{margin-left:auto;}
   .phead .top .t{font-size:16px;font-weight:650;color:#fff;}
   .phead .top .c{font-size:13px;color:rgba(214,226,248,0.5);}
   .load{margin-top:12px;}
@@ -259,7 +282,7 @@
   .sessgoal:focus{border-color:rgba(127,224,160,0.5);}
 
   /* coach nudge */
-  .coach{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);z-index:24;width:min(430px,92vw);
+  .coach{position:fixed;left:50%;bottom:120px;transform:translateX(-50%);z-index:24;width:min(430px,92vw);
     background:rgba(10,16,32,0.97);border:1px solid rgba(255,170,110,0.3);border-radius:16px;padding:16px 18px;
     box-shadow:0 20px 60px rgba(0,0,0,0.6);display:none;}
   .coach.show{display:block;animation:coachup .35s ease;}
@@ -298,10 +321,8 @@
   .reset .topth .tk{font-family:var(--mono);font-size:10.5px;letter-spacing:1.4px;color:var(--ember-1);text-transform:uppercase;}
   .reset .topth .tv{font-size:15.5px;color:#fff;margin-top:5px;line-height:1.45;}
   @media(max-width:880px){
-    .outer{flex-direction:column;height:auto;min-height:100vh;}
-    .brain{flex:none;height:56vh;min-height:360px;}
-    .panel{width:100%;border-left:none;border-top:1px solid rgba(255,255,255,0.08);}
-    .list{min-height:240px;}
+    .qgreet{font-size:16px;}
+    .nav .pop.words{display:none;}
   }
 </style>
 </head>
@@ -310,7 +331,15 @@
     <div class="brain" id="stage">
       <canvas id="cv"></canvas>
       <div class="title"><div class="k">Headroom</div><div class="h">What's on your mind</div></div>
-      <div class="nav"><a class="on" href="index.html">Brain dump</a><a href="dashboard.html">Overview</a><a href="connections.html">Connections</a><button class="pop" id="briefBtn" title="Morning briefing">☀</button><button class="pop" id="popBtn" title="Pop out a mini Headroom that stays on top while you work">⧉</button></div>
+      <div class="nav"><a class="on" href="index.html">Brain dump</a><a href="dashboard.html">Overview</a><a href="connections.html">Connections</a><button class="pop" id="briefBtn" title="Morning briefing">☀</button><button class="pop" id="popBtn" title="Pop out a mini Headroom that stays on top while you work">⧉</button><button class="pop words" id="panelBtn" title="Open your list">☰ Your mind</button></div>
+
+      <div class="qcap" id="qcap">
+        <div class="qgreet" id="qGreet"></div>
+        <div class="qrow">
+          <div class="qdots" id="qDots"></div>
+          <input id="qIn" placeholder="What's on your mind? Type it, press Enter." autocomplete="off"/>
+        </div>
+      </div>
 
       <div class="brief0" id="briefing" style="display:none">
         <button class="bx" id="briefClose">×</button>
@@ -338,9 +367,10 @@
       </div>
     </div>
 
-    <aside class="panel">
+    <aside class="panel" id="sidePanel">
       <div class="phead">
-        <div class="top"><div class="t">Brain dump</div><div class="c"><span id="activeCount">0</span> active</div></div>
+        <div class="top"><div class="t">Brain dump</div><div class="c"><span id="activeCount">0</span> active</div>
+          <button class="pclose" id="panelClose" title="Close">×</button></div>
         <div class="load">
           <div class="lr"><span>Mental load</span><span id="loadLabel">Clear</span></div>
           <div class="bar"><i id="loadBar"></i></div>
@@ -907,6 +937,21 @@
   })();
   setInterval(updateBriefing,30000);
 
+  /* ---------- landing quick capture ---------- */
+  let qCat='todo';
+  (function buildQcap(){
+    const el=$('#qDots');
+    CAT_ORDER.forEach(k=>{
+      const b=document.createElement('button');b.className='qd'+(k===qCat?' on':'');
+      b.title=CATS[k].label;b.style.background=CATS[k].hex;
+      b.onclick=()=>{qCat=k;el.querySelectorAll('.qd').forEach(x=>x.classList.remove('on'));b.classList.add('on');};
+      el.appendChild(b);
+    });
+    $('#qIn').addEventListener('keydown',e=>{
+      if(e.key==='Enter'&&quickAdd($('#qIn').value,qCat))$('#qIn').value='';
+    });
+  })();
+
   /* ---------- coach: nudge -> 2-min reset -> re-entry + felt rating ---------- */
   const SNOOZE='headroom_coachsnooze_v1';
   let resetIv=null, phaseIv=null, resetLeft=0;
@@ -1091,6 +1136,11 @@
     const bar=$('#loadBar');bar.style.width=(loadPct*100)+'%';bar.style.background=loadHex;bar.style.boxShadow='0 0 10px '+loadHex;
     const s=loadStats();
     document.title='Headroom — '+s.headroom+'% headroom · '+s.thoughts+' thoughts';
+    const hr=new Date().getHours();
+    $('#qGreet').innerHTML=(hr<12?'Morning':hr<18?'Afternoon':'Evening')+', <em>John</em>. '+
+      '<span class="qs">'+s.headroom+'% headroom · '+s.thoughts+' open'+
+      (s.worries?' · '+s.worries+(s.worries>1?' worries':' worry'):'')+'</span>';
+    $('#panelBtn').textContent='☰ Your mind · '+s.thoughts;
     updatePill();
     updateBriefing();
     renderTips();
@@ -1289,6 +1339,9 @@
   }
 
   /* ---------- wire ---------- */
+  const setPanel=v=>$('#sidePanel').classList.toggle('open',v);
+  $('#panelBtn').addEventListener('click',()=>setPanel(!$('#sidePanel').classList.contains('open')));
+  $('#panelClose').addEventListener('click',()=>setPanel(false));
   $('#popBtn').addEventListener('click',openPill);
   $('#briefBtn').addEventListener('click',()=>{briefingOpen()?closeBriefing():openBriefing();});
   $('#briefClose').addEventListener('click',()=>{closeBriefing();
@@ -1314,7 +1367,6 @@
     $('#sessModal').classList.remove('open');deselect();}});
 
   buildControls();renderAll();snapshotHistory();
-  try{if(localStorage.getItem(BRIEF_SEEN)!==todayKey())openBriefing();}catch(e){openBriefing();}
   buildScene();resize();
   new ResizeObserver(()=>{resize();renderCard();}).observe(stage);
   requestAnimationFrame(loop);
