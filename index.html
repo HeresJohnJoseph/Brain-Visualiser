@@ -49,6 +49,39 @@
   .hint .d{width:6px;height:6px;border-radius:50%;background:#ff5a3c;box-shadow:0 0 8px #ff5a3c;}
   .hint .t{font-size:11.5px;letter-spacing:0.3px;color:rgba(214,226,248,0.7);}
 
+  /* morning briefing — floats over the brain, glass, steps aside once seen */
+  .brief0{position:absolute;left:18px;top:76px;z-index:7;
+    width:min(540px,calc(100% - 36px));padding:20px 22px 18px;border-radius:18px;
+    background:rgba(6,12,26,0.62);backdrop-filter:blur(16px);
+    border:1px solid rgba(255,255,255,0.1);box-shadow:0 24px 70px rgba(0,0,0,0.45);
+    animation:briefin .4s ease;}
+  @keyframes briefin{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}
+  .brief0 .bx{position:absolute;top:10px;right:10px;width:26px;height:26px;border:none;border-radius:8px;
+    background:rgba(255,255,255,0.05);color:rgba(255,255,255,0.55);font-size:16px;line-height:1;cursor:pointer;}
+  .brief0 .bx:hover{background:rgba(255,255,255,0.12);color:#fff;}
+  .brief0 .bg1{font-family:var(--serif);font-size:26px;color:#fff;}
+  .brief0 .bg1 em{font-style:italic;color:var(--ember-1);}
+  .brief0 .bg2{margin-top:3px;font-size:13px;color:var(--ink-dim);}
+  .bstats{display:flex;align-items:center;gap:16px;margin-top:15px;}
+  .bs{flex:1;min-width:0;}
+  .bv{font-family:var(--mono);font-size:19px;font-weight:700;color:#ffd2a0;white-space:nowrap;}
+  .bl{font-family:var(--mono);font-size:8.5px;letter-spacing:1.3px;text-transform:uppercase;
+    color:rgba(214,226,248,0.42);margin-top:3px;white-space:nowrap;}
+  .bsep{width:1px;height:28px;background:rgba(255,255,255,0.1);flex:none;}
+  .bask{display:flex;gap:8px;margin-top:15px;}
+  .bask input{flex:1;min-width:0;border:1px solid rgba(255,255,255,0.12);background:rgba(0,0,0,0.3);
+    border-radius:10px;color:#fff;font-size:14px;padding:11px 13px;outline:none;}
+  .bask input:focus{border-color:rgba(255,170,110,0.5);}
+  .bask button{border:1px solid rgba(255,170,110,.35);border-radius:10px;padding:0 18px;font-weight:700;
+    font-size:13.5px;cursor:pointer;color:var(--ember-1);background:rgba(255,133,74,.12);transition:.2s;}
+  .bask button:hover{background:rgba(255,133,74,.2);}
+  .bchips{display:flex;gap:6px;flex-wrap:wrap;margin-top:10px;}
+  .bchips button{cursor:pointer;font-size:11.5px;font-weight:600;color:rgba(214,226,248,0.6);padding:7px 11px;
+    border-radius:8px;border:1px solid rgba(255,255,255,0.09);background:rgba(255,255,255,0.02);transition:.2s;}
+  .bchips button:hover{color:#fff;border-color:rgba(255,170,110,.4);}
+  .bans{display:none;margin-top:13px;padding-top:13px;border-top:1px solid rgba(255,255,255,0.08);
+    font-family:var(--serif);font-style:italic;font-size:15px;line-height:1.55;color:#ffe9d2;}
+
   /* selected card */
   .card{position:absolute;width:290px;max-height:74vh;overflow-y:auto;padding:14px;border-radius:14px;
     background:rgba(8,14,28,0.94);backdrop-filter:blur(18px);border:1px solid rgba(255,255,255,0.12);
@@ -288,7 +321,26 @@
     <div class="brain" id="stage">
       <canvas id="cv"></canvas>
       <div class="title"><div class="k">Headroom</div><div class="h">What's on your mind</div></div>
-      <div class="nav"><a class="on" href="index.html">Brain dump</a><a href="dashboard.html">Overview</a><a href="connections.html">Connections</a><button class="pop" id="popBtn" title="Pop out a mini Headroom that stays on top while you work">⧉</button></div>
+      <div class="nav"><a class="on" href="index.html">Brain dump</a><a href="dashboard.html">Overview</a><a href="connections.html">Connections</a><button class="pop" id="briefBtn" title="Morning briefing">☀</button><button class="pop" id="popBtn" title="Pop out a mini Headroom that stays on top while you work">⧉</button></div>
+
+      <div class="brief0" id="briefing" style="display:none">
+        <button class="bx" id="briefClose">×</button>
+        <div class="bg1" id="bGreet">Morning, <em>John</em>.</div>
+        <div class="bg2">Here's what's important today.</div>
+        <div class="bstats">
+          <div class="bs"><div class="bv" id="bHead">—</div><div class="bl">Headroom</div></div>
+          <div class="bsep"></div>
+          <div class="bs"><div class="bv" id="bCnt">—</div><div class="bl">Open · Worries</div></div>
+          <div class="bsep"></div>
+          <div class="bs"><div class="bv" id="bDump">—</div><div class="bl">Since last dump</div></div>
+        </div>
+        <div class="bask">
+          <input id="bAskIn" placeholder="Ask Headroom anything…" autocomplete="off"/>
+          <button id="bAskGo">Ask</button>
+        </div>
+        <div class="bchips" id="bChips"></div>
+        <div class="bans" id="bAns"></div>
+      </div>
       <div class="hint"><span class="d"></span><span class="t">Click a neuron to read it · worries glow red-hot</span></div>
       <div class="shud" id="shud">
         <span class="st2" id="shudT">25:00</span>
@@ -826,6 +878,48 @@
     toast(n+' thought'+(n>1?'s':'')+' set down. Your head just got lighter.');
   }
 
+  /* ---------- morning briefing (Rize home, blended) ---------- */
+  const BRIEF_SEEN='headroom_briefseen_v1';
+  const fmtAgo=ms=>{const m=Math.floor(ms/60000);
+    return m<1?'now':m<60?m+'m':Math.floor(m/60)+'h '+(m%60)+'m';};
+  function briefingOpen(){return $('#briefing').style.display!=='none';}
+  function updateBriefing(){
+    if(!briefingOpen())return;
+    const s=loadStats();
+    $('#bHead').textContent=s.headroom+'%';
+    $('#bHead').style.color=s.loadPct>0.65?'#ff5a3c':s.loadPct>0.4?'#ff9a3c':'#7fe0a0';
+    $('#bCnt').textContent=s.thoughts+' · '+s.worries;
+    $('#bDump').textContent=fmtAgo(Date.now()-lastDumpAt());
+  }
+  function openBriefing(){
+    const h=new Date().getHours();
+    $('#bGreet').innerHTML=(h<12?'Morning':h<18?'Afternoon':'Evening')+', <em>John</em>.';
+    $('#briefing').style.display='block';
+    updateBriefing();
+  }
+  function closeBriefing(){$('#briefing').style.display='none';}
+  async function briefAsk(q){
+    q=(q||$('#bAskIn').value).trim();if(!q)return;
+    const box=$('#bAns');box.style.display='block';
+    box.innerHTML='<div class="skel" style="width:86%"></div><div class="skel" style="width:60%"></div>';
+    try{
+      const r=await fetch('/api/ask',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({question:q,thoughts:state.thoughts})});
+      const d=await r.json();
+      box.textContent=d.answer||'';
+    }catch(e){box.textContent='Couldn\'t reach Headroom — is the server running?';}
+  }
+  (function buildBriefChips(){
+    const chips=[['What should I set down first?','ask'],['Summarize my load','ask'],['✦ Plan my day','plan']];
+    const el=$('#bChips');
+    chips.forEach(([label,kind])=>{
+      const b=document.createElement('button');b.textContent=label;
+      b.onclick=()=>{if(kind==='plan')openPlan();else{$('#bAskIn').value=label;briefAsk(label);}};
+      el.appendChild(b);
+    });
+  })();
+  setInterval(updateBriefing,30000);
+
   /* ---------- coach: nudge -> 2-min reset -> re-entry + felt rating ---------- */
   const SNOOZE='headroom_coachsnooze_v1';
   let resetIv=null, phaseIv=null, resetLeft=0;
@@ -838,6 +932,7 @@
     if(Date.now()<sn)return false;
     if(state.selectedId)return false;
     if(session)return false;
+    if(briefingOpen())return false;
     if($('#reset').classList.contains('open'))return false;
     if($('#coach').classList.contains('show'))return false;
     return true;
@@ -915,6 +1010,7 @@
   function startSession(id,mins,goal){
     const th=state.thoughts.find(x=>x.id===id);if(!th)return;
     session={id,left:(mins||25)*60,started:Date.now(),goal:goal||''};
+    closeBriefing();
     deselect();
     $('#shudTx').textContent=th.text;
     $('#shud').classList.add('on');
@@ -1019,6 +1115,7 @@
     const s=loadStats();
     document.title='Headroom — '+s.headroom+'% headroom · '+s.thoughts+' thoughts';
     updatePill();
+    updateBriefing();
     renderTips();
   }
   function renderList(){
@@ -1217,6 +1314,11 @@
 
   /* ---------- wire ---------- */
   $('#popBtn').addEventListener('click',openPill);
+  $('#briefBtn').addEventListener('click',()=>{briefingOpen()?closeBriefing():openBriefing();});
+  $('#briefClose').addEventListener('click',()=>{closeBriefing();
+    try{localStorage.setItem(BRIEF_SEEN,todayKey());}catch(e){}});
+  $('#bAskGo').addEventListener('click',()=>briefAsk());
+  $('#bAskIn').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();briefAsk();}});
   $('#draft').addEventListener('input',e=>{state.draft=e.target.value;});
   $('#draft').addEventListener('keydown',e=>{if(e.key==='Enter'){e.preventDefault();addThought();}});
   $('#addBtn').addEventListener('click',addThought);
@@ -1236,6 +1338,7 @@
     $('#sessModal').classList.remove('open');deselect();}});
 
   buildControls();renderAll();snapshotHistory();
+  try{if(localStorage.getItem(BRIEF_SEEN)!==todayKey())openBriefing();}catch(e){openBriefing();}
   buildScene();resize();
   new ResizeObserver(()=>{resize();renderCard();}).observe(stage);
   requestAnimationFrame(loop);
