@@ -15,7 +15,32 @@
     --serif:"Fraunces",Georgia,serif; --mono:"Space Mono",ui-monospace,monospace;
     --ink:#e8eeff; --ink-dim:rgba(214,226,248,0.6); --ink-faint:rgba(214,226,248,0.4);
     --ember-1:#ffd2a0; --ember-2:#ff854a; --ember-3:#ff5a22; --ember-glow:rgba(255,120,45,.5);
+    --grad:linear-gradient(90deg,#ffd2a0 0%,#ff854a 100%);
   }
+
+  /* ---- loading screen ---- */
+  .loader{position:fixed;inset:0;z-index:9999;background:#03060f;}
+  .loader.done{opacity:0;pointer-events:none;transition:opacity .55s ease .1s;}
+  .ldTop{position:absolute;top:24px;left:26px;font-family:var(--mono);font-size:11px;
+    letter-spacing:0.32em;text-transform:uppercase;color:rgba(214,226,248,0.5);}
+  .ldWord{position:absolute;inset:0;display:grid;place-items:center;}
+  .ldWord span{font-family:var(--serif);font-style:italic;font-size:clamp(40px,8vw,84px);
+    color:rgba(232,238,255,0.85);letter-spacing:-0.5px;}
+  .ldCount{position:absolute;right:30px;bottom:44px;font-family:var(--serif);
+    font-size:clamp(64px,10vw,120px);color:var(--ink);font-variant-numeric:tabular-nums;line-height:1;}
+  .ldBar{position:absolute;left:0;right:0;bottom:0;height:3px;background:rgba(255,255,255,0.06);}
+  .ldBar i{display:block;height:100%;width:100%;background:var(--grad);
+    transform:scaleX(0);transform-origin:left;transition:transform .12s linear;
+    box-shadow:0 0 8px rgba(255,133,74,0.35);}
+  .sw{animation:wordin .45s ease;}
+  @keyframes wordin{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+
+  /* ---- entrance (after loader) ---- */
+  .name-reveal,.blur-in{opacity:0;}
+  body.entered .name-reveal{animation:nameup 1.2s cubic-bezier(0.22,1,0.36,1) forwards;animation-delay:var(--d,0s);}
+  body.entered .blur-in{animation:blurin 1s cubic-bezier(0.22,1,0.36,1) forwards;animation-delay:var(--d,0s);}
+  @keyframes nameup{from{opacity:0;transform:translateY(50px)}to{opacity:1;transform:none}}
+  @keyframes blurin{from{opacity:0;transform:translateY(20px);filter:blur(10px)}to{opacity:1;transform:none;filter:blur(0)}}
   body{font-family:var(--sans);color:var(--ink);}
   input,textarea,button{font-family:inherit;}
   ::placeholder{color:rgba(214,226,248,0.35);}
@@ -26,17 +51,22 @@
   .brain{position:relative;flex:1 1 auto;width:100%;height:100%;overflow:hidden;}
   .brain canvas{display:block;width:100%;height:100%;}
 
-  .title{position:absolute;left:18px;top:16px;pointer-events:none;}
-  .title .k{font-family:var(--mono);font-size:11px;letter-spacing:2.5px;text-transform:uppercase;color:rgba(214,226,248,0.5);}
-  .title .h{font-family:var(--serif);font-size:20px;font-weight:500;color:#fff;margin-top:3px;}
-
-  .nav{position:absolute;right:18px;top:16px;display:flex;gap:6px;background:rgba(6,12,26,0.55);
-    border:1px solid rgba(255,255,255,0.09);padding:5px;border-radius:12px;backdrop-filter:blur(10px);z-index:7;}
-  .nav a{padding:7px 13px;border-radius:8px;font-size:12.5px;font-weight:600;color:var(--ink-dim);text-decoration:none;transition:.2s;}
-  .nav a:hover{color:#fff;}
-  .nav a.on{background:linear-gradient(135deg,rgba(255,133,74,.24),rgba(255,90,34,.16));color:#fff;}
-  .nav .pop{padding:7px 11px;border-radius:8px;border:none;background:transparent;color:var(--ink-dim);
-    font-size:14px;line-height:1;cursor:pointer;transition:.2s;}
+  /* floating pill navbar, top center */
+  .nav{position:absolute;left:50%;top:16px;transform:translateX(-50%);display:flex;align-items:center;gap:3px;
+    background:rgba(6,12,26,0.6);border:1px solid rgba(255,255,255,0.09);padding:6px;border-radius:999px;
+    backdrop-filter:blur(14px);z-index:9;max-width:calc(100vw - 24px);}
+  .nav .logo{width:34px;height:34px;border-radius:50%;background:var(--grad);display:grid;place-items:center;
+    flex:none;cursor:default;transition:transform .2s;}
+  .nav .logo:hover{transform:scale(1.1);}
+  .nav .logo i{width:30px;height:30px;border-radius:50%;background:#060b18;display:grid;place-items:center;
+    font-family:var(--serif);font-style:italic;font-size:14px;color:#fff;font-weight:500;}
+  .nav .ndiv{width:1px;height:20px;background:rgba(255,255,255,0.1);margin:0 5px;flex:none;}
+  .nav a{padding:8px 15px;border-radius:999px;font-size:12.5px;font-weight:600;color:var(--ink-dim);
+    text-decoration:none;transition:.2s;white-space:nowrap;}
+  .nav a:hover{color:#fff;background:rgba(255,255,255,0.06);}
+  .nav a.on{background:rgba(255,255,255,0.08);color:#fff;}
+  .nav .pop{padding:8px 12px;border-radius:999px;border:none;background:transparent;color:var(--ink-dim);
+    font-size:13px;line-height:1;cursor:pointer;transition:.2s;white-space:nowrap;}
   .nav .pop:hover{color:#fff;background:rgba(255,255,255,0.07);}
   #toast{position:fixed;left:50%;bottom:120px;transform:translate(-50%,16px);z-index:30;opacity:0;
     padding:11px 18px;border-radius:12px;background:rgba(10,16,32,0.96);border:1px solid rgba(255,255,255,0.14);
@@ -128,7 +158,7 @@
   .card .qsbtn{width:100%;margin-top:8px;padding:11px;border-radius:10px;cursor:pointer;font-weight:650;font-size:13.5px;
     border:1px solid rgba(127,224,160,.35);background:rgba(127,224,160,.08);color:#7fe0a0;transition:.2s;}
   .card .qsbtn:hover{background:rgba(127,224,160,.15);}
-  .shud{position:absolute;top:16px;left:50%;transform:translateX(-50%);z-index:8;display:none;align-items:center;gap:12px;
+  .shud{position:absolute;top:74px;left:50%;transform:translateX(-50%);z-index:8;display:none;align-items:center;gap:12px;
     padding:10px 14px;border-radius:14px;background:rgba(6,12,26,0.85);backdrop-filter:blur(12px);
     border:1px solid rgba(127,224,160,0.3);box-shadow:0 10px 34px rgba(0,0,0,0.5);}
   .shud.on{display:flex;}
@@ -162,13 +192,25 @@
     background:rgba(255,255,255,0.05);color:rgba(255,255,255,0.55);font-size:16px;line-height:1;}
   .phead .pclose:hover{background:rgba(255,255,255,0.12);color:#fff;}
 
-  /* hero block, lower-left: statement + one capture line */
-  .qcap{position:absolute;left:44px;bottom:44px;z-index:6;width:min(560px,calc(100% - 88px));}
-  .qgreet{font-family:var(--serif);font-size:46px;line-height:1.06;letter-spacing:-0.5px;color:#fff;
-    text-shadow:0 4px 30px rgba(0,0,0,0.75);}
+  /* hero block, lower-left: eyebrow + statement + one capture line */
+  .qcap{position:absolute;left:44px;bottom:44px;z-index:6;width:min(600px,calc(100% - 88px));}
+  .qeyebrow{font-family:var(--mono);font-size:11px;letter-spacing:0.32em;text-transform:uppercase;
+    color:rgba(214,226,248,0.5);margin-bottom:16px;}
+  .qgreet{font-family:var(--serif);font-style:italic;font-size:clamp(48px,6.5vw,84px);line-height:0.95;
+    letter-spacing:-1px;color:#fff;text-shadow:0 4px 30px rgba(0,0,0,0.75);}
   .qgreet em{font-style:italic;color:var(--ember-1);}
-  .qsub{margin:12px 0 18px;font-size:16px;line-height:1.5;color:rgba(214,226,248,0.75);
+  .qsub{margin:16px 0 20px;font-size:16px;line-height:1.5;color:rgba(214,226,248,0.75);
     text-shadow:0 2px 14px rgba(0,0,0,0.7);}
+  .qrole{font-family:var(--serif);font-style:italic;font-size:17px;color:#fff;display:inline-block;}
+  .qrole.sw{animation:wordin .4s ease;}
+  .qctas{display:flex;gap:10px;margin-top:14px;}
+  .qcta{position:relative;z-index:0;padding:11px 20px;border-radius:999px;border:1px solid rgba(255,255,255,0.12);
+    background:rgba(6,12,26,0.6);backdrop-filter:blur(10px);color:var(--ink);font-size:13.5px;font-weight:600;
+    cursor:pointer;transition:transform .2s,border-color .2s,background .2s;}
+  .qcta:hover{transform:scale(1.05);border-color:transparent;background:#0a1020;}
+  .gring::before{content:'';position:absolute;inset:-2px;border-radius:999px;background:var(--grad);
+    opacity:0;transition:opacity .25s;z-index:-1;}
+  .gring:hover::before{opacity:1;}
   .qrow{display:flex;align-items:center;gap:10px;padding:9px 10px 9px 16px;border-radius:16px;
     background:rgba(6,12,26,0.6);backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,0.1);}
   .qstats{position:absolute;right:20px;bottom:28px;z-index:6;display:flex;gap:8px;}
@@ -333,21 +375,42 @@
 </style>
 </head>
 <body>
+  <div class="loader" id="loader">
+    <div class="ldTop">Headroom</div>
+    <div class="ldWord"><span id="ldWord">Breathe</span></div>
+    <div class="ldCount" id="ldCount">000</div>
+    <div class="ldBar"><i id="ldFill"></i></div>
+  </div>
+
   <div class="outer">
     <div class="brain" id="stage">
       <canvas id="cv"></canvas>
-      <div class="title"><div class="k">Headroom</div></div>
-      <div class="nav"><a class="on" href="index.html">Brain dump</a><a href="dashboard.html">Overview</a><a href="connections.html">Connections</a><button class="pop" id="briefBtn" title="Morning briefing">☀</button><button class="pop" id="popBtn" title="Pop out a mini Headroom that stays on top while you work">⧉</button><button class="pop words" id="panelBtn" title="Open your list">☰ Your mind</button></div>
+      <div class="nav blur-in" style="--d:.2s">
+        <span class="logo"><i>H</i></span>
+        <span class="ndiv"></span>
+        <a class="on" href="index.html">Brain dump</a>
+        <a href="dashboard.html">Overview</a>
+        <a href="connections.html">Connections</a>
+        <span class="ndiv"></span>
+        <button class="pop" id="briefBtn" title="Morning briefing">☀</button>
+        <button class="pop" id="popBtn" title="Pop out a mini Headroom that stays on top while you work">⧉</button>
+        <button class="pop words" id="panelBtn" title="Open your list">☰ Your mind</button>
+      </div>
 
       <div class="qcap" id="qcap">
-        <div class="qgreet" id="qGreet"></div>
-        <div class="qsub">Empty what's circling. Watch your mind settle.</div>
-        <div class="qrow">
+        <div class="qeyebrow blur-in" id="qEyebrow" style="--d:.3s"></div>
+        <div class="qgreet name-reveal" id="qGreet" style="--d:.15s"></div>
+        <div class="qsub blur-in" style="--d:.45s">Empty what's circling — watch your mind <span class="qrole sw" id="qRole">settle</span>.</div>
+        <div class="qrow blur-in" style="--d:.55s">
           <div class="qdots" id="qDots"></div>
           <input id="qIn" placeholder="What's on your mind? Type it, press Enter." autocomplete="off"/>
         </div>
+        <div class="qctas blur-in" style="--d:.65s">
+          <button class="qcta gring" id="ctaSweep">✦ Sweep my head</button>
+          <button class="qcta gring" id="ctaMind">Your mind ↗</button>
+        </div>
       </div>
-      <div class="qstats" id="qStats"></div>
+      <div class="qstats blur-in" id="qStats" style="--d:.75s"></div>
 
       <div class="brief0" id="briefing" style="display:none">
         <button class="bx" id="briefClose">×</button>
@@ -945,6 +1008,32 @@
   })();
   setInterval(updateBriefing,30000);
 
+  /* ---------- loading screen -> staged entrance ---------- */
+  (function loaderSeq(){
+    const el=$('#loader');if(!el)return;
+    const words=['Breathe','Arrive','Set it down'];let wi=0;
+    const wordEl=$('#ldWord');
+    const wIv=setInterval(()=>{wi=(wi+1)%words.length;wordEl.textContent=words[wi];
+      wordEl.classList.remove('sw');void wordEl.offsetWidth;wordEl.classList.add('sw');},700);
+    const t0=Date.now(),DUR=2000;
+    const tick=setInterval(()=>{
+      const p=Math.min(1,(Date.now()-t0)/DUR);
+      $('#ldCount').textContent=String(Math.round(p*100)).padStart(3,'0');
+      $('#ldFill').style.transform='scaleX('+p+')';
+      if(p>=1){clearInterval(tick);clearInterval(wIv);
+        setTimeout(()=>{el.classList.add('done');document.body.classList.add('entered');
+          setTimeout(()=>el.remove(),900);},350);}
+    },40);
+  })();
+
+  /* ---------- rotating word in the hero sub-line ---------- */
+  (function roleCycle(){
+    const words=['settle','quieten','untangle','breathe'];let i=0;const el=$('#qRole');
+    setInterval(()=>{i=(i+1)%words.length;el.textContent=words[i];
+      el.classList.remove('sw');void el.offsetWidth;el.classList.add('sw');},2200);
+  })();
+  $('#qEyebrow').textContent=new Date().toLocaleDateString(undefined,{weekday:'long',day:'numeric',month:'long'});
+
   /* ---------- landing quick capture ---------- */
   let qCat='todo';
   (function buildQcap(){
@@ -1351,6 +1440,8 @@
   const setPanel=v=>$('#sidePanel').classList.toggle('open',v);
   $('#panelBtn').addEventListener('click',()=>setPanel(!$('#sidePanel').classList.contains('open')));
   $('#panelClose').addEventListener('click',()=>setPanel(false));
+  $('#ctaSweep').addEventListener('click',openSweep);
+  $('#ctaMind').addEventListener('click',()=>setPanel(true));
   $('#popBtn').addEventListener('click',openPill);
   $('#briefBtn').addEventListener('click',()=>{briefingOpen()?closeBriefing():openBriefing();});
   $('#briefClose').addEventListener('click',()=>{closeBriefing();
