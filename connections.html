@@ -29,11 +29,18 @@
   .title .k{font-family:var(--mono);font-size:11px;letter-spacing:2.5px;text-transform:uppercase;color:rgba(214,226,248,0.5);}
   .title .h{font-family:var(--serif);font-size:20px;font-weight:500;color:#fff;margin-top:3px;}
 
-  .nav{position:absolute;right:18px;top:16px;display:flex;gap:6px;background:rgba(6,12,26,0.55);
-    border:1px solid rgba(255,255,255,0.09);padding:5px;border-radius:12px;backdrop-filter:blur(10px);z-index:7;}
-  .nav a{padding:7px 13px;border-radius:8px;font-size:12.5px;font-weight:600;color:var(--ink-dim);text-decoration:none;transition:.2s;}
-  .nav a:hover{color:#fff;}
-  .nav a.on{background:linear-gradient(135deg,rgba(255,133,74,.24),rgba(255,90,34,.16));color:#fff;}
+  .nav{position:absolute;left:50%;top:16px;transform:translateX(-50%);display:flex;align-items:center;gap:3px;
+    background:rgba(6,12,26,0.6);border:1px solid rgba(255,255,255,0.09);padding:6px;border-radius:999px;
+    backdrop-filter:blur(14px);z-index:7;}
+  .nav .logo{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;flex:none;cursor:default;
+    background:linear-gradient(90deg,#ffd2a0,#ff854a);transition:transform .2s;}
+  .nav .logo:hover{transform:scale(1.1);}
+  .nav .logo i{width:30px;height:30px;border-radius:50%;background:#060b18;display:grid;place-items:center;
+    font-family:var(--serif);font-style:italic;font-size:14px;color:#fff;}
+  .nav .ndiv{width:1px;height:20px;background:rgba(255,255,255,0.1);margin:0 5px;}
+  .nav a{padding:8px 15px;border-radius:999px;font-size:12.5px;font-weight:600;color:var(--ink-dim);text-decoration:none;transition:.2s;}
+  .nav a:hover{color:#fff;background:rgba(255,255,255,0.06);}
+  .nav a.on{background:rgba(255,255,255,0.08);color:#fff;}
 
   .legend{position:absolute;left:18px;bottom:16px;display:flex;align-items:center;gap:14px;
     padding:9px 14px;border-radius:12px;background:rgba(6,12,26,0.55);backdrop-filter:blur(8px);
@@ -100,6 +107,8 @@
       <canvas id="cv"></canvas>
       <div class="title"><div class="k">Headroom</div><div class="h">How it connects</div></div>
       <div class="nav">
+        <span class="logo"><i>H</i></span>
+        <span class="ndiv"></span>
         <a href="index.html">Brain dump</a><a href="dashboard.html">Overview</a><a class="on" href="connections.html">Connections</a>
       </div>
       <div class="legend" id="legend"></div>

@@ -366,6 +366,12 @@
     border:1px solid rgba(255,150,70,0.22);max-width:440px;}
   .reset .topth .tk{font-family:var(--mono);font-size:10.5px;letter-spacing:1.4px;color:var(--ember-1);text-transform:uppercase;}
   .reset .topth .tv{font-size:15.5px;color:#fff;margin-top:5px;line-height:1.45;}
+  .sgrid{display:flex;gap:12px;margin-top:22px;flex-wrap:wrap;justify-content:center;}
+  .sgc{min-width:104px;padding:14px 16px;border-radius:14px;background:rgba(255,255,255,0.04);
+    border:1px solid rgba(255,255,255,0.08);}
+  .sgv{font-family:var(--mono);font-size:22px;font-weight:700;color:#ffd2a0;}
+  .sgl{font-family:var(--mono);font-size:9.5px;letter-spacing:1.2px;text-transform:uppercase;
+    color:rgba(214,226,248,0.5);margin-top:5px;}
   @media(max-width:880px){
     .qgreet{font-size:32px;}
     .qcap{left:18px;bottom:22px;width:calc(100% - 36px);}
@@ -1117,6 +1123,12 @@
   /* ---------- quiet sessions: one thought, everything else dims ---------- */
   let session=null, sessionIv=null;
   function histTodayVal(k){const e=readHistory().find(x=>x.date===todayKey());return (e&&e[k])||0;}
+  /* per-session records — the Overview's Quiet sessions card reads these */
+  const SESS='headroom_sessions_v1';
+  function readSessions(){try{const a=JSON.parse(localStorage.getItem(SESS));return Array.isArray(a)?a:[];}catch(e){return [];}}
+  function logSession(rec){try{localStorage.setItem(SESS,JSON.stringify([...readSessions(),rec].slice(-200)));}catch(e){}}
+  function patchLastSession(patch){try{const a=readSessions();if(!a.length)return;
+    Object.assign(a[a.length-1],patch);localStorage.setItem(SESS,JSON.stringify(a));}catch(e){}}
   function paintSession(){const t=$('#shudT');
     if(t&&session)t.textContent=Math.floor(session.left/60)+':'+String(session.left%60).padStart(2,'0');}
   let sessDurPick=25;
@@ -1138,7 +1150,8 @@
   }
   function startSession(id,mins,goal){
     const th=state.thoughts.find(x=>x.id===id);if(!th)return;
-    session={id,left:(mins||25)*60,started:Date.now(),goal:goal||''};
+    session={id,left:(mins||25)*60,started:Date.now(),goal:goal||'',planned:mins||25,
+      subDone0:(th.subtasks||[]).filter(s=>s.done).length,thoughts0:state.thoughts.length};
     closeBriefing();
     deselect();
     $('#shudTx').textContent=th.text;
@@ -1149,29 +1162,40 @@
   function cancelSession(){clearInterval(sessionIv);sessionIv=null;session=null;$('#shud').classList.remove('on');}
   function endSession(){
     const th=state.thoughts.find(x=>x.id===session.id);
-    const goal=session.goal;
-    const mins=Math.max(1,Math.round((Date.now()-session.started)/60000));
+    const goal=session.goal, planned=session.planned, started=session.started;
+    const mins=Math.max(1,Math.round((Date.now()-started)/60000));
+    const subNow=th?(th.subtasks||[]).filter(s=>s.done).length:0;
+    const steps=Math.max(0,subNow-session.subDone0);
+    const captured=Math.max(0,state.thoughts.length-session.thoughts0);
     cancelSession();
     snapshotHistory({sessions:histTodayVal('sessions')+1,sessionMins:histTodayVal('sessionMins')+mins});
+    logSession({start:started,mins,planned,text:th?th.text:'',cat:th?th.cat:'',
+      goal:goal||'',steps,captured,felt:null,done:false});
     if(!th)return;
-    const sub=(th.subtasks&&th.subtasks.length)
-      ?'<div class="rtip">'+th.subtasks.filter(s=>s.done).length+'/'+th.subtasks.length+' plan steps ticked off.</div>':'';
+    const cell=(v,l)=>'<div class="sgc"><div class="sgv">'+v+'</div><div class="sgl">'+l+'</div></div>';
     const el=$('#reset');el.classList.add('open');
     el.innerHTML=
       '<div class="rphase">Session done.</div>'+
-      '<div class="rtip">You gave "'+esc(th.text)+'" '+mins+' quiet minute'+(mins>1?'s':'')+'. That\'s how things actually get lighter.</div>'+
-      (goal?'<div class="rtip" style="color:#7fe0a0">Your intention: "'+esc(goal)+'"</div>':'')+sub+
+      '<div class="rtip">You gave "'+esc(th.text)+'" your full attention. That\'s how things actually get lighter.</div>'+
+      (goal?'<div class="rtip" style="color:#7fe0a0">Your intention: "'+esc(goal)+'"</div>':'')+
+      '<div class="sgrid">'+
+        cell(mins+'m','of '+planned+' planned')+
+        (th.subtasks&&th.subtasks.length?cell(steps,'step'+(steps===1?'':'s')+' ticked'):'')+
+        cell(captured,'thought'+(captured===1?'':'s')+' captured')+
+        cell(new Date(started).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'}),'started')+
+      '</div>'+
       '<div class="racts"><button id="sessDone">Mark it done</button><button id="sessKeep">Keep it open</button></div>'+
       '<div class="rtip" style="margin-top:22px">How does your head feel?</div>'+
       '<div class="feltrow">'+[1,2,3,4,5,6,7,8,9,10].map(n=>'<button data-f="'+n+'">'+n+'</button>').join('')+'</div>'+
       '<div class="feltlab"><span>clear</span><span>very full</span></div>';
     el.querySelectorAll('.feltrow button').forEach(b=>{b.onclick=()=>{
       snapshotHistory({felt:+b.dataset.f});
+      patchLastSession({felt:+b.dataset.f});
       el.querySelectorAll('.feltrow button').forEach(x=>{
         x.style.borderColor='rgba(255,255,255,0.16)';x.style.color='rgba(214,226,248,0.6)';x.style.background='rgba(255,255,255,0.04)';});
       b.style.borderColor='#ffd2a0';b.style.color='#ffd2a0';b.style.background='rgba(255,210,160,0.12)';
     };});
-    $('#sessDone').onclick=()=>{th.done=true;persist();renderAll();closeReset();
+    $('#sessDone').onclick=()=>{th.done=true;patchLastSession({done:true});persist();renderAll();closeReset();
       toast('Done and set down. One less thing circling.');};
     $('#sessKeep').onclick=closeReset;
   }
