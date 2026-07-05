@@ -162,15 +162,19 @@
     background:rgba(255,255,255,0.05);color:rgba(255,255,255,0.55);font-size:16px;line-height:1;}
   .phead .pclose:hover{background:rgba(255,255,255,0.12);color:#fff;}
 
-  /* quiet lower-third: greeting + one capture line */
-  .qcap{position:absolute;left:50%;bottom:26px;transform:translateX(-50%);z-index:6;
-    width:min(600px,calc(100% - 36px));}
-  .qgreet{text-align:center;font-family:var(--serif);font-size:18px;color:rgba(232,238,255,0.85);
-    margin-bottom:12px;text-shadow:0 2px 18px rgba(0,0,0,0.7);}
+  /* hero block, lower-left: statement + one capture line */
+  .qcap{position:absolute;left:44px;bottom:44px;z-index:6;width:min(560px,calc(100% - 88px));}
+  .qgreet{font-family:var(--serif);font-size:46px;line-height:1.06;letter-spacing:-0.5px;color:#fff;
+    text-shadow:0 4px 30px rgba(0,0,0,0.75);}
   .qgreet em{font-style:italic;color:var(--ember-1);}
-  .qgreet .qs{color:rgba(214,226,248,0.6);font-size:15px;}
+  .qsub{margin:12px 0 18px;font-size:16px;line-height:1.5;color:rgba(214,226,248,0.75);
+    text-shadow:0 2px 14px rgba(0,0,0,0.7);}
   .qrow{display:flex;align-items:center;gap:10px;padding:9px 10px 9px 16px;border-radius:16px;
     background:rgba(6,12,26,0.6);backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,0.1);}
+  .qstats{position:absolute;right:20px;bottom:28px;z-index:6;display:flex;gap:8px;}
+  .qp{font-family:var(--mono);font-size:11px;letter-spacing:0.6px;padding:8px 13px;border-radius:999px;
+    background:rgba(6,12,26,0.55);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,0.1);
+    color:rgba(214,226,248,0.75);white-space:nowrap;}
   .qdots{display:flex;gap:6px;flex:none;}
   .qd{width:15px;height:15px;border-radius:50%;border:none;cursor:pointer;padding:0;transition:.15s;opacity:.5;}
   .qd.on{opacity:1;box-shadow:0 0 0 2px rgba(255,255,255,0.85);}
@@ -321,7 +325,9 @@
   .reset .topth .tk{font-family:var(--mono);font-size:10.5px;letter-spacing:1.4px;color:var(--ember-1);text-transform:uppercase;}
   .reset .topth .tv{font-size:15.5px;color:#fff;margin-top:5px;line-height:1.45;}
   @media(max-width:880px){
-    .qgreet{font-size:16px;}
+    .qgreet{font-size:32px;}
+    .qcap{left:18px;bottom:22px;width:calc(100% - 36px);}
+    .qstats{display:none;}
     .nav .pop.words{display:none;}
   }
 </style>
@@ -330,16 +336,18 @@
   <div class="outer">
     <div class="brain" id="stage">
       <canvas id="cv"></canvas>
-      <div class="title"><div class="k">Headroom</div><div class="h">What's on your mind</div></div>
+      <div class="title"><div class="k">Headroom</div></div>
       <div class="nav"><a class="on" href="index.html">Brain dump</a><a href="dashboard.html">Overview</a><a href="connections.html">Connections</a><button class="pop" id="briefBtn" title="Morning briefing">☀</button><button class="pop" id="popBtn" title="Pop out a mini Headroom that stays on top while you work">⧉</button><button class="pop words" id="panelBtn" title="Open your list">☰ Your mind</button></div>
 
       <div class="qcap" id="qcap">
         <div class="qgreet" id="qGreet"></div>
+        <div class="qsub">Empty what's circling. Watch your mind settle.</div>
         <div class="qrow">
           <div class="qdots" id="qDots"></div>
           <input id="qIn" placeholder="What's on your mind? Type it, press Enter." autocomplete="off"/>
         </div>
       </div>
+      <div class="qstats" id="qStats"></div>
 
       <div class="brief0" id="briefing" style="display:none">
         <button class="bx" id="briefClose">×</button>
@@ -1137,9 +1145,10 @@
     const s=loadStats();
     document.title='Headroom — '+s.headroom+'% headroom · '+s.thoughts+' thoughts';
     const hr=new Date().getHours();
-    $('#qGreet').innerHTML=(hr<12?'Morning':hr<18?'Afternoon':'Evening')+', <em>John</em>. '+
-      '<span class="qs">'+s.headroom+'% headroom · '+s.thoughts+' open'+
-      (s.worries?' · '+s.worries+(s.worries>1?' worries':' worry'):'')+'</span>';
+    $('#qGreet').innerHTML=(hr<12?'Morning':hr<18?'Afternoon':'Evening')+', <em>John</em>.';
+    $('#qStats').innerHTML='<span class="qp">'+s.headroom+'% headroom</span>'+
+      '<span class="qp">'+s.thoughts+' open</span>'+
+      (s.worries?'<span class="qp">'+s.worries+(s.worries>1?' worries':' worry')+'</span>':'');
     $('#panelBtn').textContent='☰ Your mind · '+s.thoughts;
     updatePill();
     updateBriefing();
