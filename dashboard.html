@@ -572,6 +572,7 @@
       return '<div class="srow"><span class="stime">'+time+'</span>'+
         '<span class="stx">'+esc(s.text)+(s.goal?'<span class="sgoal">"'+esc(s.goal)+'"</span>':'')+'</span>'+
         (s.done?'<span class="sdone">✓ done</span>':'')+
+        (s.drift>0?'<span class="sfelt" style="color:#ff8c75;border-color:rgba(255,107,138,.3)">−'+s.drift+'m drift</span>':'')+
         (s.felt?'<span class="sfelt">felt '+s.felt+'/10</span>':'')+
         '<span class="smin">'+s.mins+'m</span></div>';
     }).join("");

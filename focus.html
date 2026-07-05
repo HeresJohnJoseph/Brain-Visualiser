@@ -131,6 +131,30 @@
   .feltrow button:hover{border-color:var(--ember-1);color:var(--ember-1);}
   .feltlab{display:flex;justify-content:space-between;width:100%;max-width:404px;margin-top:6px;
     font-size:11px;color:var(--ink-faint);}
+  .awlist{margin-top:18px;width:min(420px,90vw);text-align:left;}
+  .awk{font-family:var(--mono);font-size:9.5px;letter-spacing:1.4px;text-transform:uppercase;
+    color:rgba(214,226,248,0.45);margin-bottom:6px;}
+  .awrow{display:flex;align-items:center;gap:12px;padding:9px 2px;border-top:1px solid rgba(255,255,255,0.07);
+    font-size:13px;}
+  .awrow:first-of-type{border-top:none;}
+  .awrow .at{font-family:var(--mono);font-size:11px;color:var(--ink-dim);flex:none;width:66px;}
+  .awrow .al{flex:1;}
+  .awrow .al.drift{color:#ff8c75;}
+  .awrow .al.ok{color:var(--green);}
+  .awrow .am{font-family:var(--mono);font-size:11.5px;color:var(--ink-dim);flex:none;}
+
+  /* welcome-back prompt */
+  .backask{position:fixed;left:50%;bottom:28px;transform:translateX(-50%);z-index:30;
+    width:min(430px,92vw);background:rgba(10,16,32,0.97);border:1px solid rgba(255,170,110,0.3);
+    border-radius:16px;padding:16px 18px;box-shadow:0 20px 60px rgba(0,0,0,0.6);display:none;}
+  .backask.show{display:block;animation:baskup .35s ease;}
+  @keyframes baskup{from{opacity:0;transform:translate(-50%,14px)}to{opacity:1;transform:translate(-50%,0)}}
+  .backask .bk{font-family:var(--mono);font-size:10.5px;letter-spacing:1.6px;text-transform:uppercase;color:var(--ember-1);}
+  .backask .bt{font-family:var(--serif);font-size:17px;color:#fff;margin:7px 0 12px;}
+  .backask .bb{display:flex;gap:8px;}
+  .backask .bb button{flex:1;padding:10px;border-radius:10px;cursor:pointer;font-weight:650;font-size:13px;}
+  .backask .byes{border:1px solid rgba(127,224,160,.4);background:rgba(127,224,160,.1);color:var(--green);}
+  .backask .bno{border:1px solid rgba(255,107,138,.35);background:rgba(255,107,138,.08);color:#ff8c75;}
 
   @media(max-width:960px){
     .outer{flex-direction:column;height:auto;min-height:100vh;}
@@ -181,6 +205,15 @@
 
   <div class="reset" id="reset"></div>
 
+  <div class="backask" id="backAsk">
+    <div class="bk">Headroom · welcome back</div>
+    <div class="bt" id="backTxt">You were away. Part of the task?</div>
+    <div class="bb">
+      <button class="byes" id="backYes">Part of the task</button>
+      <button class="bno" id="backNo">I drifted</button>
+    </div>
+  </div>
+
 <script>
 (function(){
   "use strict";
@@ -216,7 +249,51 @@
 
   /* ---------- pomodoro engine ---------- */
   const S={phase:'idle',taskId:null,taskText:'',workMins:25,rounds:0,endAt:0,iv:null,
-    startedAt:0,roundStart:0,workSec:0,thoughts0:0,sub0:0};
+    startedAt:0,roundStart:0,workSec:0,thoughts0:0,sub0:0,
+    away:[],awayStart:0,notifT:null};
+
+  /* ---- away tracking: we can't (and won't) see where you went — only that
+     you left this tab during a work round, and for how long. You label it. ---- */
+  const AWAY_MIN_SEC=45, NUDGE_AFTER_MS=5*60000;
+  function goneAway(){
+    if(S.phase!=='work'||S.awayStart)return;
+    S.awayStart=Date.now();
+    clearTimeout(S.notifT);
+    S.notifT=setTimeout(()=>{if(S.awayStart&&S.phase==='work')nudgeAway();},NUDGE_AFTER_MS);
+  }
+  function cameBack(){
+    if(!S.awayStart)return;
+    const secs=(Date.now()-S.awayStart)/1000;
+    S.awayStart=0;clearTimeout(S.notifT);
+    if(secs<AWAY_MIN_SEC)return;              // a glance, not a drift
+    S.away.push({start:Date.now()-secs*1000,secs,onTask:null});
+    const m=Math.max(1,Math.round(secs/60));
+    $('#backTxt').textContent='You were away '+m+' min. Was that part of the task?';
+    $('#backAsk').classList.add('show');
+  }
+  function flushAway(){ // round ended while still away
+    if(!S.awayStart)return;
+    const secs=(Date.now()-S.awayStart)/1000;
+    S.awayStart=0;clearTimeout(S.notifT);
+    if(secs>=AWAY_MIN_SEC)S.away.push({start:Date.now()-secs*1000,secs,onTask:null});
+  }
+  function labelPending(v){
+    S.away.forEach(a=>{if(a.onTask===null)a.onTask=v;});
+    $('#backAsk').classList.remove('show');
+  }
+  function nudgeAway(){
+    try{
+      if(('Notification' in window)&&Notification.permission==='granted'){
+        const n=new Notification('Headroom — still on task?',{
+          body:'5 minutes away from "'+S.taskText.slice(0,60)+'". Is this part of it?',
+          tag:'headroom-focus'});
+        n.onclick=()=>{try{window.focus();n.close();}catch(e){}};
+      }
+    }catch(e){}
+  }
+  document.addEventListener('visibilitychange',()=>{document.hidden?goneAway():cameBack();});
+  addEventListener('blur',goneAway);
+  addEventListener('focus',cameBack);
   const subDone=id=>{const t=readTh().find(x=>x.id===id);
     return t?(t.subtasks||[]).filter(s=>s.done).length:0;};
 
@@ -258,10 +335,11 @@
   }
 
   function startRun(){
-    S.rounds=0;S.workSec=0;
+    S.rounds=0;S.workSec=0;S.away=[];S.awayStart=0;
     S.startedAt=Date.now();
     S.thoughts0=readTh().length;
     S.sub0=S.taskId?subDone(S.taskId):0;
+    try{if(('Notification' in window)&&Notification.permission==='default')Notification.requestPermission();}catch(e){}
     startWork();
   }
 
@@ -290,7 +368,7 @@
     const total=(S.phase==='work'?S.workMins:BREAK_MINS)*60;
     const c=$('#clock');if(c)c.textContent=fmt(left);
     setRing(left/total);
-    document.title=fmt(left)+' · Headroom Focus';
+    document.title=(S.awayStart?'Away · ':'')+fmt(left)+' · Headroom Focus';
     if(left<=0){
       if(S.phase==='work')finishWorkRound(true);
       else if(S.phase==='break')endBreak();
@@ -299,6 +377,7 @@
 
   function finishWorkRound(complete){
     clearInterval(S.iv);S.iv=null;
+    flushAway();
     S.workSec+=Math.max(0,(Date.now()-S.roundStart)/1000);
     if(complete)S.rounds++;
     paintRounds();
@@ -345,24 +424,39 @@
 
   function finishSession(){
     clearInterval(S.iv);S.iv=null;
+    flushAway();
+    $('#backAsk').classList.remove('show');
     document.title='Headroom — Focus';
     const mins=Math.max(1,Math.round(S.workSec/60));
+    const awaySec=S.away.reduce((a,x)=>a+x.secs,0);
+    const driftSec=S.away.filter(x=>x.onTask!==true).reduce((a,x)=>a+x.secs,0);
+    const trueM=Math.max(0,Math.round((S.workSec-driftSec)/60));
+    const driftM=Math.round(driftSec/60);
     const steps=S.taskId?Math.max(0,subDone(S.taskId)-S.sub0):0;
     const captured=Math.max(0,readTh().length-S.thoughts0);
     snapshotHistory({sessions:histVal('sessions')+1,sessionMins:histVal('sessionMins')+mins});
     logSess({start:S.startedAt,mins,planned:S.workMins,text:S.taskText,cat:'task',
-      goal:'',steps,captured,felt:null,done:false,rounds:S.rounds});
+      goal:'',steps,captured,felt:null,done:false,rounds:S.rounds,
+      trueMins:trueM,drift:driftM,aways:S.away.length});
     const cell=(v,l)=>'<div class="sgc"><div class="sgv">'+v+'</div><div class="sgl">'+l+'</div></div>';
+    const tmt=t=>new Date(t).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'});
+    const awHtml=S.away.length?
+      '<div class="awlist"><div class="awk">While you were away</div>'+
+      S.away.map(a=>'<div class="awrow"><span class="at">'+tmt(a.start)+'</span>'+
+        '<span class="al '+(a.onTask===true?'ok':a.onTask===false?'drift':'')+'">'+
+        (a.onTask===true?'part of the task':a.onTask===false?'drifted':'away — unlabeled')+'</span>'+
+        '<span class="am">'+Math.max(1,Math.round(a.secs/60))+'m</span></div>').join('')+'</div>':'';
     const el=$('#reset');el.classList.add('open');
     el.innerHTML=
       '<div class="rphase">Focus finished.</div>'+
       '<div class="rtip">Here\'s exactly what happened while you sat with <em>"'+esc(S.taskText)+'"</em>:</div>'+
       '<div class="sgrid">'+
-        cell(mins+'m','focused')+
+        cell(trueM+'m','true focus')+
+        (driftM>0?cell('−'+driftM+'m','adrift'):'')+
         cell(S.rounds,'round'+(S.rounds===1?'':'s')+' done')+
         (S.taskId?cell(steps,'step'+(steps===1?'':'s')+' ticked'):'')+
         cell(captured,'thought'+(captured===1?'':'s')+' captured')+
-      '</div>'+
+      '</div>'+awHtml+
       (S.taskId?'<div class="racts"><button id="fsDone">Mark it done</button><button id="fsKeep">Keep it open</button></div>'
                :'<div class="racts"><button id="fsKeep">Back to the room</button></div>')+
       '<div class="rtip" style="margin-top:20px">How does your head feel?</div>'+
@@ -387,6 +481,8 @@
 
   document.addEventListener('keydown',e=>{
     if(e.key==='Escape'&&$('#reset').classList.contains('open'))closeOverlay();});
+  $('#backYes').addEventListener('click',()=>labelPending(true));
+  $('#backNo').addEventListener('click',()=>labelPending(false));
 
   /* ---------- right rail: today's sessions ---------- */
   function renderRail(){
@@ -415,6 +511,7 @@
       return '<div class="srow"><span class="stime">'+time+'</span>'+
         '<span class="stx">'+esc(s.text)+(s.goal?'<span class="sgoal">"'+esc(s.goal)+'"</span>':'')+'</span>'+
         (s.done?'<span class="sdone">✓</span>':'')+
+        (s.drift>0?'<span class="smin" style="color:#ff8c75">−'+s.drift+'m</span>':'')+
         '<span class="smin">'+s.mins+'m</span></div>';
     }).join('');
   }
