@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Headroom — Focus</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,500&family=Hanken+Grotesk:wght@400;500;600;700&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet" />
+<style>
+  html,body{height:100%;margin:0;background:#03060f;}
+  *{-webkit-font-smoothing:antialiased;box-sizing:border-box;}
+  :root{
+    --sans:"Hanken Grotesk",ui-sans-serif,system-ui,sans-serif;
+    --serif:"Fraunces",Georgia,serif; --mono:"Space Mono",ui-monospace,monospace;
+    --ink:#e8eeff; --ink-dim:rgba(214,226,248,0.6); --ink-faint:rgba(214,226,248,0.4);
+    --ember-1:#ffd2a0; --ember-2:#ff854a; --green:#7fe0a0;
+    --grad:linear-gradient(90deg,#ffd2a0 0%,#ff854a 100%);
+  }
+  body{font-family:var(--sans);color:var(--ink);}
+  input,select,button{font-family:inherit;}
+  .bv-scroll::-webkit-scrollbar{width:8px;}
+  .bv-scroll::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.12);border-radius:8px;}
+
+  .outer{display:flex;width:100%;height:100vh;background:
+    radial-gradient(120% 100% at 50% -10%,#0a1020 0%,#03060f 60%);}
+  .stage{position:relative;flex:1 1 auto;height:100%;display:flex;align-items:center;
+    justify-content:center;flex-direction:column;overflow:hidden;}
+
+  /* floating pill nav */
+  .nav{position:absolute;left:50%;top:16px;transform:translateX(-50%);display:flex;align-items:center;gap:3px;
+    background:rgba(6,12,26,0.6);border:1px solid rgba(255,255,255,0.09);padding:6px;border-radius:999px;
+    backdrop-filter:blur(14px);z-index:9;}
+  .nav .logo{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;flex:none;cursor:default;
+    background:var(--grad);transition:transform .2s;}
+  .nav .logo:hover{transform:scale(1.1);}
+  .nav .logo i{width:30px;height:30px;border-radius:50%;background:#060b18;display:grid;place-items:center;
+    font-family:var(--serif);font-style:italic;font-size:14px;color:#fff;}
+  .nav .ndiv{width:1px;height:20px;background:rgba(255,255,255,0.1);margin:0 5px;}
+  .nav a{padding:8px 15px;border-radius:999px;font-size:12.5px;font-weight:600;color:var(--ink-dim);
+    text-decoration:none;transition:.2s;}
+  .nav a:hover{color:#fff;background:rgba(255,255,255,0.06);}
+  .nav a.on{background:rgba(255,255,255,0.08);color:#fff;}
+
+  /* the ring */
+  .phase{font-family:var(--mono);font-size:11px;letter-spacing:0.32em;text-transform:uppercase;
+    color:var(--ink-faint);margin-bottom:26px;}
+  .phase b{color:var(--ember-1);font-weight:400;}
+  .ringwrap{position:relative;width:min(380px,72vw);aspect-ratio:1;}
+  .ringwrap svg{position:absolute;inset:0;width:100%;height:100%;transform:rotate(-90deg);}
+  .ringwrap .track{fill:none;stroke:rgba(255,255,255,0.07);stroke-width:3;}
+  .ringwrap .bar{fill:none;stroke:url(#emberGrad);stroke-width:3;stroke-linecap:round;
+    transition:stroke-dashoffset .4s linear;}
+  .ringwrap.break .bar{stroke:var(--green);}
+  .ringin{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;
+    justify-content:center;text-align:center;padding:44px;}
+  .clock{font-family:var(--mono);font-size:clamp(44px,8vw,64px);font-weight:700;color:var(--ink);
+    font-variant-numeric:tabular-nums;line-height:1;}
+  .under{margin-top:12px;font-size:13.5px;color:var(--ink-dim);max-width:240px;line-height:1.45;
+    overflow:hidden;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;}
+  .under em{font-family:var(--serif);font-style:italic;color:var(--ember-1);}
+
+  /* setup inside the ring */
+  .setup{display:flex;flex-direction:column;align-items:center;gap:12px;width:100%;}
+  .setup select{width:100%;max-width:250px;border:1px solid rgba(255,255,255,0.14);background:rgba(0,0,0,0.35);
+    border-radius:10px;color:#fff;font-size:13.5px;padding:10px 12px;outline:none;color-scheme:dark;}
+  .durrow{display:flex;gap:6px;}
+  .durrow button{padding:8px 14px;border-radius:999px;font-size:12.5px;font-weight:650;cursor:pointer;
+    border:1px solid rgba(255,255,255,0.12);background:rgba(255,255,255,0.03);color:var(--ink-dim);transition:.15s;}
+  .durrow button.on{border-color:rgba(255,170,110,0.55);background:rgba(255,133,74,0.14);color:#ffb782;}
+  .gobtn{margin-top:4px;padding:12px 30px;border-radius:999px;border:none;cursor:pointer;
+    font-weight:700;font-size:14.5px;color:#20120a;background:var(--ember-2);transition:.2s;}
+  .gobtn:hover{filter:brightness(1.08);}
+
+  .rounds{display:flex;gap:8px;margin-top:24px;height:10px;}
+  .rounds i{width:10px;height:10px;border-radius:50%;background:rgba(255,255,255,0.1);}
+  .rounds i.done{background:var(--ember-2);}
+
+  .ctrl{display:flex;gap:10px;margin-top:22px;min-height:42px;}
+  .ctrl button{padding:11px 20px;border-radius:999px;cursor:pointer;font-weight:650;font-size:13px;
+    border:1px solid rgba(255,255,255,0.14);background:rgba(255,255,255,0.04);color:var(--ink);transition:.2s;}
+  .ctrl button:hover{background:rgba(255,255,255,0.09);}
+  .ctrl button.hot{border:none;color:#20120a;background:var(--ember-2);font-weight:700;}
+  .ctrl button.hot:hover{filter:brightness(1.08);}
+
+  /* right rail: today's sessions */
+  .rail{flex:none;width:380px;height:100%;padding:84px 26px 20px;overflow-y:auto;
+    background:rgba(7,12,24,0.6);border-left:1px solid rgba(255,255,255,0.07);}
+  .kick{font-family:var(--mono);font-size:10px;letter-spacing:1.7px;text-transform:uppercase;
+    color:rgba(214,226,248,0.38);margin-bottom:12px;}
+  .kchip{float:right;color:var(--ember-1);}
+  .daystrip{position:relative;height:44px;border-radius:12px;background:rgba(255,255,255,0.04);
+    border:1px solid rgba(255,255,255,0.06);overflow:hidden;}
+  .daystrip .tick{position:absolute;top:0;bottom:0;width:1px;background:rgba(255,255,255,0.05);}
+  .daystrip .blk{position:absolute;top:7px;bottom:7px;border-radius:8px;min-width:7px;opacity:.92;
+    background:var(--grad);}
+  .dshours{display:flex;justify-content:space-between;font-family:var(--mono);font-size:10px;
+    color:var(--ink-faint);margin-top:7px;}
+  .srow{display:flex;align-items:center;gap:10px;padding:13px 2px;border-top:1px solid rgba(255,255,255,0.06);}
+  .srow:first-of-type{border-top:none;margin-top:12px;}
+  .srow .stime{font-family:var(--mono);font-size:11px;color:var(--ink-dim);flex:none;width:66px;}
+  .srow .stx{flex:1;font-size:13.5px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .srow .stx .sgoal{display:block;font-size:11.5px;color:var(--ink-faint);margin-top:2px;
+    font-family:var(--serif);font-style:italic;}
+  .srow .smin{font-family:var(--mono);font-size:12px;color:var(--ember-1);flex:none;}
+  .srow .sdone{flex:none;color:var(--green);font-size:12px;font-weight:600;}
+  .sempty{display:flex;flex-direction:column;align-items:center;gap:14px;padding:30px 0;}
+  .sempty .ring0{width:80px;height:80px;border-radius:50%;border:2px dashed rgba(255,255,255,0.14);}
+  .sempty .set{font-size:13px;color:var(--ink-faint);text-align:center;line-height:1.55;}
+
+  /* end-of-focus breakdown overlay */
+  .reset{position:fixed;inset:0;z-index:26;display:none;align-items:center;justify-content:center;
+    flex-direction:column;background:rgba(2,4,11,0.94);backdrop-filter:blur(8px);text-align:center;padding:24px;}
+  .reset.open{display:flex;}
+  .rphase{font-family:var(--serif);font-style:italic;font-size:22px;color:#fff;}
+  .rtip{margin-top:10px;font-size:14px;color:var(--ink-dim);max-width:440px;line-height:1.6;}
+  .rtip em{font-family:var(--serif);font-style:italic;color:var(--green);}
+  .sgrid{display:flex;gap:12px;margin-top:22px;flex-wrap:wrap;justify-content:center;}
+  .sgc{min-width:104px;padding:14px 16px;border-radius:14px;background:rgba(255,255,255,0.04);
+    border:1px solid rgba(255,255,255,0.08);}
+  .sgv{font-family:var(--mono);font-size:22px;font-weight:700;color:#ffd2a0;}
+  .sgl{font-family:var(--mono);font-size:9.5px;letter-spacing:1.2px;text-transform:uppercase;
+    color:rgba(214,226,248,0.5);margin-top:5px;}
+  .racts{display:flex;gap:10px;margin-top:26px;}
+  .racts button{padding:11px 20px;border-radius:999px;cursor:pointer;font-weight:650;font-size:13.5px;
+    border:1px solid rgba(255,255,255,0.16);background:rgba(255,255,255,0.05);color:var(--ink);}
+  .racts button:hover{background:rgba(255,255,255,0.1);}
+  .feltrow{display:flex;gap:6px;margin-top:18px;flex-wrap:wrap;justify-content:center;}
+  .feltrow button{width:34px;height:34px;border-radius:9px;cursor:pointer;font-weight:700;font-size:13px;
+    border:1px solid rgba(255,255,255,0.16);background:rgba(255,255,255,0.04);color:rgba(214,226,248,0.6);}
+  .feltrow button:hover{border-color:var(--ember-1);color:var(--ember-1);}
+  .feltlab{display:flex;justify-content:space-between;width:100%;max-width:404px;margin-top:6px;
+    font-size:11px;color:var(--ink-faint);}
+
+  @media(max-width:960px){
+    .outer{flex-direction:column;height:auto;min-height:100vh;}
+    .stage{min-height:82vh;padding:90px 16px 40px;}
+    .rail{width:100%;height:auto;border-left:none;border-top:1px solid rgba(255,255,255,0.07);
+      padding:26px 20px;}
+  }
+</style>
+</head>
+<body>
+  <div class="outer">
+    <div class="stage">
+      <div class="nav">
+        <span class="logo"><i>H</i></span>
+        <span class="ndiv"></span>
+        <a href="index.html">Brain dump</a>
+        <a href="dashboard.html">Overview</a>
+        <a class="on" href="focus.html">Focus</a>
+      </div>
+
+      <div class="phase" id="phaseLabel">One thing at a time</div>
+
+      <div class="ringwrap" id="ringwrap">
+        <svg viewBox="0 0 260 260">
+          <defs>
+            <linearGradient id="emberGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+              <stop offset="0%" stop-color="#ffd2a0"/><stop offset="100%" stop-color="#ff854a"/>
+            </linearGradient>
+          </defs>
+          <circle class="track" cx="130" cy="130" r="120"/>
+          <circle class="bar" id="ringBar" cx="130" cy="130" r="120"
+            stroke-dasharray="754" stroke-dashoffset="754"/>
+        </svg>
+        <div class="ringin" id="ringin"></div>
+      </div>
+
+      <div class="rounds" id="rounds"></div>
+      <div class="ctrl" id="ctrl"></div>
+    </div>
+
+    <aside class="rail bv-scroll">
+      <div class="kick">Today <span class="kchip" id="railChip"></span></div>
+      <div class="daystrip" id="dayStrip"></div>
+      <div class="dshours"><span>7am</span><span>10am</span><span>1pm</span><span>4pm</span><span>7pm</span><span>10pm</span></div>
+      <div id="sessList"></div>
+    </aside>
+  </div>
+
+  <div class="reset" id="reset"></div>
+
+<script>
+(function(){
+  "use strict";
+  const $=s=>document.querySelector(s);
+  const esc=s=>{const d=document.createElement('div');d.textContent=s||'';return d.innerHTML;};
+  const LS='brainviz.thoughts.v1', SESS='headroom_sessions_v1', HIST='headroom_history_v1';
+  const BREAK_MINS=5, C=754; // ring circumference
+
+  const readTh=()=>{try{const a=JSON.parse(localStorage.getItem(LS));return Array.isArray(a)?a:[];}catch(e){return [];}};
+  const writeTh=a=>{try{localStorage.setItem(LS,JSON.stringify(a));}catch(e){}};
+  const readSess=()=>{try{const a=JSON.parse(localStorage.getItem(SESS));return Array.isArray(a)?a:[];}catch(e){return [];}};
+  const logSess=r=>{try{localStorage.setItem(SESS,JSON.stringify([...readSess(),r].slice(-200)));}catch(e){}};
+  const patchSess=p=>{try{const a=readSess();if(!a.length)return;
+    Object.assign(a[a.length-1],p);localStorage.setItem(SESS,JSON.stringify(a));}catch(e){}};
+  const todayKey=()=>{const d=new Date();
+    return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');};
+  function snapshotHistory(patch){
+    try{
+      const h=(()=>{try{const x=JSON.parse(localStorage.getItem(HIST));return Array.isArray(x)?x:[];}catch(e){return [];}})();
+      const key=todayKey();
+      const open=readTh().filter(t=>!t.done);
+      const loadV=open.reduce((a,t)=>a+(t.prio||2),0), loadPct=Math.min(loadV/22,1);
+      let e=h.find(x=>x.date===key);
+      if(!e){e={date:key,felt:null};h.push(e);}
+      Object.assign(e,{headroom:Math.round((1-loadPct)*100),loadPct:+loadPct.toFixed(3),
+        thoughts:open.length,worries:open.filter(t=>t.cat==='worry').length,
+        done:readTh().filter(t=>t.done).length},patch||{});
+      localStorage.setItem(HIST,JSON.stringify(h.slice(-90)));
+    }catch(e2){}
+  }
+  const histVal=k=>{try{const h=JSON.parse(localStorage.getItem(HIST))||[];
+    const e=h.find(x=>x.date===todayKey());return (e&&e[k])||0;}catch(e){return 0;}};
+
+  /* ---------- pomodoro engine ---------- */
+  const S={phase:'idle',taskId:null,taskText:'',workMins:25,rounds:0,endAt:0,iv:null,
+    startedAt:0,roundStart:0,workSec:0,thoughts0:0,sub0:0};
+  const subDone=id=>{const t=readTh().find(x=>x.id===id);
+    return t?(t.subtasks||[]).filter(s=>s.done).length:0;};
+
+  function setRing(p){ // p = fraction remaining 0..1
+    $('#ringBar').style.strokeDashoffset=String(C*(1-p));
+  }
+  function fmt(sec){const m=Math.floor(sec/60),s=sec%60;
+    return m+':'+String(s).padStart(2,'0');}
+
+  function renderIdle(){
+    S.phase='idle';clearInterval(S.iv);S.iv=null;
+    $('#ringwrap').classList.remove('break');
+    setRing(0);
+    $('#phaseLabel').innerHTML='One thing at a time';
+    const open=readTh().filter(t=>!t.done)
+      .sort((a,b)=>(b.prio||2)-(a.prio||2));
+    $('#ringin').innerHTML=
+      '<div class="setup">'+
+        '<select id="taskSel">'+
+          open.map(t=>'<option value="'+t.id+'">'+esc(t.text.slice(0,44))+'</option>').join('')+
+          '<option value="">Just focus — no task</option>'+
+        '</select>'+
+        '<div class="durrow" id="durRow"></div>'+
+        '<button class="gobtn" id="goBtn">Start focus</button>'+
+      '</div>';
+    const dr=$('#durRow');
+    [15,25,45].forEach(m=>{const b=document.createElement('button');
+      b.textContent=m+' min';b.className=m===S.workMins?'on':'';
+      b.onclick=()=>{S.workMins=m;dr.querySelectorAll('button').forEach(x=>x.className='');b.className='on';};
+      dr.appendChild(b);});
+    $('#goBtn').onclick=()=>{
+      const sel=$('#taskSel');
+      S.taskId=sel.value||null;
+      S.taskText=sel.value?sel.options[sel.selectedIndex].text:'Just focus';
+      startRun();
+    };
+    $('#rounds').innerHTML='';
+    $('#ctrl').innerHTML='';
+  }
+
+  function startRun(){
+    S.rounds=0;S.workSec=0;
+    S.startedAt=Date.now();
+    S.thoughts0=readTh().length;
+    S.sub0=S.taskId?subDone(S.taskId):0;
+    startWork();
+  }
+
+  function paintRounds(){
+    $('#rounds').innerHTML=Array.from({length:Math.max(4,S.rounds+1)},(_,i)=>
+      '<i class="'+(i<S.rounds?'done':'')+'"></i>').slice(0,6).join('');
+  }
+
+  function startWork(){
+    S.phase='work';
+    $('#ringwrap').classList.remove('break');
+    $('#phaseLabel').innerHTML='<b>Focus</b> · round '+(S.rounds+1);
+    S.roundStart=Date.now();
+    S.endAt=Date.now()+S.workMins*60000;
+    $('#ringin').innerHTML='<div class="clock" id="clock"></div>'+
+      '<div class="under">'+esc(S.taskText)+'</div>';
+    $('#ctrl').innerHTML='<button id="plus5">+5 min</button><button id="endBtn" class="hot">End round</button>';
+    $('#plus5').onclick=()=>{S.endAt+=300000;};
+    $('#endBtn').onclick=()=>finishWorkRound(false);
+    paintRounds();tick();
+    clearInterval(S.iv);S.iv=setInterval(tick,500);
+  }
+
+  function tick(){
+    const left=Math.max(0,Math.round((S.endAt-Date.now())/1000));
+    const total=(S.phase==='work'?S.workMins:BREAK_MINS)*60;
+    const c=$('#clock');if(c)c.textContent=fmt(left);
+    setRing(left/total);
+    document.title=fmt(left)+' · Headroom Focus';
+    if(left<=0){
+      if(S.phase==='work')finishWorkRound(true);
+      else if(S.phase==='break')endBreak();
+    }
+  }
+
+  function finishWorkRound(complete){
+    clearInterval(S.iv);S.iv=null;
+    S.workSec+=Math.max(0,(Date.now()-S.roundStart)/1000);
+    if(complete)S.rounds++;
+    paintRounds();
+    S.phase='choice';
+    document.title='Headroom — Focus';
+    $('#phaseLabel').innerHTML=complete?'<b>Round done.</b> Well held.':'<b>Round ended.</b>';
+    setRing(1);
+    $('#ringin').innerHTML='<div class="clock" style="font-size:30px">Take 5?</div>'+
+      '<div class="under">Proper breaks are how the brain resets — that\'s the whole trick.</div>';
+    $('#ctrl').innerHTML=
+      '<button id="brkBtn" class="hot">Break · 5 min</button>'+
+      '<button id="nextBtn">Next round</button>'+
+      '<button id="finBtn">Finish up</button>';
+    $('#brkBtn').onclick=startBreak;
+    $('#nextBtn').onclick=startWork;
+    $('#finBtn').onclick=finishSession;
+  }
+
+  function startBreak(){
+    S.phase='break';
+    $('#ringwrap').classList.add('break');
+    $('#phaseLabel').innerHTML='<b style="color:var(--green)">Break</b> · away from the screen';
+    S.endAt=Date.now()+BREAK_MINS*60000;
+    $('#ringin').innerHTML='<div class="clock" id="clock"></div>'+
+      '<div class="under">Stand up. Look far away. Water helps.</div>';
+    $('#ctrl').innerHTML='<button id="endBrk">End break early</button>';
+    $('#endBrk').onclick=endBreak;
+    tick();clearInterval(S.iv);S.iv=setInterval(tick,500);
+  }
+
+  function endBreak(){
+    clearInterval(S.iv);S.iv=null;
+    S.phase='afterbreak';
+    $('#ringwrap').classList.remove('break');
+    document.title='Headroom — Focus';
+    $('#phaseLabel').innerHTML='<b>Breath taken.</b> Back to it.';
+    setRing(0);
+    $('#ringin').innerHTML='<div class="clock" style="font-size:30px">Ready?</div>'+
+      '<div class="under">'+esc(S.taskText)+'</div>';
+    $('#ctrl').innerHTML='<button id="nb" class="hot">Next round</button><button id="fb">Finish up</button>';
+    $('#nb').onclick=startWork;
+    $('#fb').onclick=finishSession;
+  }
+
+  function finishSession(){
+    clearInterval(S.iv);S.iv=null;
+    document.title='Headroom — Focus';
+    const mins=Math.max(1,Math.round(S.workSec/60));
+    const steps=S.taskId?Math.max(0,subDone(S.taskId)-S.sub0):0;
+    const captured=Math.max(0,readTh().length-S.thoughts0);
+    snapshotHistory({sessions:histVal('sessions')+1,sessionMins:histVal('sessionMins')+mins});
+    logSess({start:S.startedAt,mins,planned:S.workMins,text:S.taskText,cat:'task',
+      goal:'',steps,captured,felt:null,done:false,rounds:S.rounds});
+    const cell=(v,l)=>'<div class="sgc"><div class="sgv">'+v+'</div><div class="sgl">'+l+'</div></div>';
+    const el=$('#reset');el.classList.add('open');
+    el.innerHTML=
+      '<div class="rphase">Focus finished.</div>'+
+      '<div class="rtip">Here\'s exactly what happened while you sat with <em>"'+esc(S.taskText)+'"</em>:</div>'+
+      '<div class="sgrid">'+
+        cell(mins+'m','focused')+
+        cell(S.rounds,'round'+(S.rounds===1?'':'s')+' done')+
+        (S.taskId?cell(steps,'step'+(steps===1?'':'s')+' ticked'):'')+
+        cell(captured,'thought'+(captured===1?'':'s')+' captured')+
+      '</div>'+
+      (S.taskId?'<div class="racts"><button id="fsDone">Mark it done</button><button id="fsKeep">Keep it open</button></div>'
+               :'<div class="racts"><button id="fsKeep">Back to the room</button></div>')+
+      '<div class="rtip" style="margin-top:20px">How does your head feel?</div>'+
+      '<div class="feltrow">'+[1,2,3,4,5,6,7,8,9,10].map(n=>'<button data-f="'+n+'">'+n+'</button>').join('')+'</div>'+
+      '<div class="feltlab"><span>clear</span><span>very full</span></div>';
+    el.querySelectorAll('.feltrow button').forEach(b=>{b.onclick=()=>{
+      snapshotHistory({felt:+b.dataset.f});patchSess({felt:+b.dataset.f});
+      el.querySelectorAll('.feltrow button').forEach(x=>{
+        x.style.borderColor='rgba(255,255,255,0.16)';x.style.color='rgba(214,226,248,0.6)';x.style.background='rgba(255,255,255,0.04)';});
+      b.style.borderColor='#ffd2a0';b.style.color='#ffd2a0';b.style.background='rgba(255,210,160,0.12)';
+    };});
+    const done=$('#fsDone');
+    if(done)done.onclick=()=>{
+      const a=readTh();const t=a.find(x=>x.id===S.taskId);
+      if(t){t.done=true;writeTh(a);}
+      patchSess({done:true});closeOverlay();
+    };
+    $('#fsKeep').onclick=closeOverlay;
+  }
+  function closeOverlay(){$('#reset').classList.remove('open');$('#reset').innerHTML='';
+    renderIdle();renderRail();}
+
+  document.addEventListener('keydown',e=>{
+    if(e.key==='Escape'&&$('#reset').classList.contains('open'))closeOverlay();});
+
+  /* ---------- right rail: today's sessions ---------- */
+  function renderRail(){
+    const t0=new Date();t0.setHours(0,0,0,0);
+    const today=readSess().filter(s=>s.start>=t0.getTime());
+    const total=today.reduce((a,s)=>a+(s.mins||0),0);
+    $('#railChip').textContent=today.length?today.length+' · '+total+' min':'';
+    const DAY0=7,SPAN=(22-7)*60;
+    let strip='';
+    for(let i=1;i<5;i++)strip+='<span class="tick" style="left:'+(i*20)+'%"></span>';
+    today.forEach(s=>{
+      const d=new Date(s.start),m=(d.getHours()-DAY0)*60+d.getMinutes();
+      const l=Math.max(0,Math.min(98,m/SPAN*100));
+      const w=Math.max(1.4,Math.min(100-l,(s.mins||1)/SPAN*100));
+      strip+='<span class="blk" style="left:'+l+'%;width:'+w+'%" title="'+esc(s.text)+'"></span>';
+    });
+    $('#dayStrip').innerHTML=strip;
+    const list=$('#sessList');
+    if(!today.length){
+      list.innerHTML='<div class="sempty"><div class="ring0"></div>'+
+        '<div class="set">Nothing yet today.<br/>Pick one thing and give it a round.</div></div>';
+      return;
+    }
+    list.innerHTML=today.slice().reverse().map(s=>{
+      const time=new Date(s.start).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'});
+      return '<div class="srow"><span class="stime">'+time+'</span>'+
+        '<span class="stx">'+esc(s.text)+(s.goal?'<span class="sgoal">"'+esc(s.goal)+'"</span>':'')+'</span>'+
+        (s.done?'<span class="sdone">✓</span>':'')+
+        '<span class="smin">'+s.mins+'m</span></div>';
+    }).join('');
+  }
+  addEventListener('storage',e=>{
+    if(e.key===SESS)renderRail();
+    if(e.key===LS&&S.phase==='idle')renderIdle();
+  });
+
+  renderIdle();renderRail();
+})();
+</script>
+</body>
+</html>

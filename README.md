@@ -5,17 +5,17 @@ head — each worry becomes a glowing thought clustered on a real anatomical
 brain image, sized by urgency and pulsing red-hot if it's a worry. Tap one and
 an AI coach (Claude) gives you a short reframe, 2–3 concrete moves to offload
 it, and a grounding note. Rate how it makes you feel (joy / stress /
-excitement), plan your whole day in one tap, and see how it all connects on a
-force-directed graph.
+excitement), plan your whole day in one tap, and give any thought undivided
+attention with Pomodoro focus rounds.
 
 Three pages, one shared store (`localStorage`):
 
 - **`index.html`** — Brain dump: the visualizer + capture + AI clearing.
 - **`dashboard.html`** — Overview: load-reactive hero, to-dos, habit tracker,
-  what needs attention.
-- **`connections.html`** — Connections: an Obsidian-graph-style view of every
-  thought, filterable by category, with "compounding stress" links between
-  thoughts you've both rated highly stressful.
+  quiet-session timeline, what needs attention.
+- **`focus.html`** — Focus: a Pomodoro tracker tied to your thoughts. Pick one,
+  run focus rounds broken up by 5-minute breaks, and finish with an exact
+  breakdown of what happened during the session.
 
 ## Run it locally
 
@@ -43,7 +43,7 @@ Or double-click **`Start Headroom.command`**. No `npm install`, no build step
 
 The app is split so it deploys as-is with zero config:
 
-- `index.html`, `dashboard.html`, `connections.html`, `brain.png`, `brain.mp4` —
+- `index.html`, `dashboard.html`, `focus.html`, `brain.png`, `brain.mp4` —
   served as static files.
 - `api/clear.py`, `api/focus.py` — Vercel Python serverless functions (Vercel
   auto-detects any `.py` file under `/api`), replacing `server.py`'s proxy
@@ -66,9 +66,9 @@ Steps:
 |------|------------|
 | `index.html` | Brain dump — canvas physics + capture + AI clearing |
 | `dashboard.html` | Overview — command-center dashboard |
-| `connections.html` | Connections — force-directed graph view |
+| `focus.html` | Focus — Pomodoro rounds with breaks + session breakdowns |
 | `brain.png` | Static anatomical brain image — Overview dashboard hero |
-| `brain.mp4` | Looping animated brain render (H.264, 720p) — Brain dump & Connections backdrop |
+| `brain.mp4` | Looping animated brain render (H.264, 540p) — Brain dump backdrop |
 | `server.py` | Local dev only: static server + Claude proxy |
 | `api/clear.py`, `api/focus.py` | Production: Vercel serverless equivalents |
 | `Start Headroom.command` | Double-click local launcher |
